@@ -1,0 +1,103 @@
+Great. I will create a backend database schema for Back4App (Parse) and Firebase that supports the MVP for Farmers and General Users. This will include user management, product listings, orders, and messaging integration, ensuring real-time communication and secure authentication.
+
+I?ll structure the Parse classes and fields, map how Firebase is used for Realtime Database and Auth, and ensure that both systems can interoperate without issues. I?ll get back to you with the full schema and integration plan shortly.
+
+
+# Backend Schema Design for Rooster Enthusiast (MVP)
+
+We propose using Parse Server (via Back4App) for structured data and Firebase for auth and real-time chat.  Users sign up via **Firebase Authentication (email/password)**.  The Parse data model includes classes for users, listings, orders, media, and feedback/ratings.  We use Parse **pointers** and **relations** to link objects: e.g. a Product Listing has a pointer to its seller (a User).  Parse?s built-in **Role** and **ACL/CLP** system enforces access control (e.g. Farmer vs GeneralUser roles).
+
+## Parse Classes
+
+### User (ParseUser)
+
+| Field                | Type                       | Description/Constraints                                              |
+| -------------------- | -------------------------- | -------------------------------------------------------------------- |
+| objectId             | String (auto)              | Unique ID (Parse-generated)                                          |
+| username             | String                     | User name (unique, indexed)                                          |
+| email                | String                     | Email (used by Firebase Auth, unique)                                |
+| password             | String                     | (Handled by Parse/Firebase; stored hashed)                           |
+| firebaseUid          | String                     | Firebase Auth UID (links to Firebase user)                           |
+| role                 | Pointer <Role> or String   | Role of user (?Farmer? or ?General?); use Parse Role object for RBAC |
+| profileImage         | Pointer <Media> (optional) | Reference to profile picture (Media class)                           |
+| createdAt, updatedAt | Date                       | Timestamps (automatically managed by Parse)                          |
+
+* **Roles & ACL:**  We create two Parse Role objects (?Farmer? and ?GeneralUser?).  Each new ParseUser is given one Role. Class-Level Permissions (CLPs) can restrict who may create/query users; object ACLs ensure users can only edit their own profile. For example, Farmers might have read/write on their own listings, while GeneralUsers have only read access to browse.
+
+* **Integration:** On signup via Firebase Auth, capture the new user?s UID and store it in `firebaseUid`.  This links Firebase?s identity to the ParseUser record.  In subsequent API calls to Parse, your backend can verify the Firebase token and then query Parse for the user with that `firebaseUid`.  Using the Firebase UID as a primary key avoids duplicate accounts and keeps identities in sync across systems.
+
+### ProductListing (class: `ProductListing`)
+
+| Field                | Type                                       | Description                                   |
+| -------------------- | ------------------------------------------ | --------------------------------------------- |
+| objectId             | String (auto)                              | Unique ID                                     |
+| title                | String                                     | Product title                                 |
+| description          | String                                     | Detailed description                          |
+| price                | Number/Decimal                             | Price                                         |
+| isTraceable          | Boolean                                    | True if product?s lineage is trackable        |
+| traceId              | String (optional)                          | Traceability code or ID (for traceable items) |
+| seller               | Pointer <User>                             | Reference to the User selling this product    |
+| images               | Relation <Media> or Array\<Pointer<Media>> | Linked media (photos/videos) for the product  |
+| createdAt, updatedAt | Date                                       | Automatic timestamps                          |
+
+* **Traceability:**  We include a Boolean `isTraceable` and optional `traceId`.  Later, a separate `TraceRecord` class (or linked breed records) could store full lineage.  For now, a traceable listing might have a simple trace code or pointer to a ?brood? object.
+
+* **Relationships:**  The `seller` field is a Parse Pointer to the User who posted the listing.  Media files (images/videos) are stored in a separate `Media` class (below) and linked via a Parse Relation or array of pointers in `images`.  This one-to-many setup (one listing, many images) can use Parse Relation (for many-to-many) or a list of pointers (one-to-many).  Because Parse pointers refer to a *single* object, we use either multiple pointer fields or a Relation to attach multiple media items.
+
+* **Access Control:**  Listing objects have ACLs so only the owning Farmer (seller) can edit or delete them, while GeneralUsers may have read (Find) access. Class-Level Permissions can restrict creation of listings to Farmers only.
+
+### Order (class: `Order`)
+
+| Field     | Type                     | Description                                           |
+| --------- | ------------------------ | ----------------------------------------------------- |
+| objectId  | String (auto)            | Unique ID                                             |
+| buyer     | Pointer <User>           | User who placed the order                             |
+| seller    | Pointer <User>           | Seller of the product (redundant; can derive)         |
+| product   | Pointer <ProductListing> | Product being purchased                               |
+| status    | String or Enum           | Order status (e.g. ?Pending?, ?Shipped?, ?Completed?) |
+| price     | Number/Decimal           | Final price (in case of discounts etc.)               |
+| quantity  | Number                   | Quantity ordered                                      |
+| createdAt | Date                     | Order creation timestamp (Parse auto)                 |
+| updatedAt | Date                     | Last status update timestamp                          |
+
+* **Relationships:**  `buyer` and `seller` are pointers to User.  The `seller` can often be derived from `product.seller`, but having it explicitly simplifies queries.  The `product` is a pointer to the ProductListing being sold.  Parse pointers establish these links.
+
+* **ACLs:** Only the seller and buyer (and administrators) should be able to update order status.  We can set each Order?s ACL to allow read/write access for `buyer` and `seller` roles, using object-level ACL settings.
+
+### Media (class: `Media`)
+
+| Field     | Type                                | Description                                         |
+| --------- | ----------------------------------- | --------------------------------------------------- |
+| objectId  | String (auto)                       | Unique ID                                           |
+| file      | File (ParseFile)                    | Stored media file (image or video)                  |
+| owner     | Pointer <User>                      | Uploader/owner of the media                         |
+| listing   | Pointer <ProductListing> (optional) | Associated product (if this media is for a listing) |
+| caption   | String (optional)                   | Caption or alt-text                                 |
+| mediaType | String                              | ?image? or ?video?                                  |
+| createdAt | Date                                | Upload timestamp                                    |
+
+* **Usage:**  Media objects store photos/videos. The `file` field is a ParseFile containing the binary. The `owner` field is a pointer to the user who uploaded it (for profile pics or ad-hoc photos). If this media is an image of a product, the `listing` pointer refers to that ProductListing. This allows linking multiple images to one listing by setting the `listing` pointer on each Media item.  Only the media owner (and admins) should have write access (ACL), while any app user might have read access to listing images.
+
+### Feedback (User-to-User)
+
+| Field     | Type                       | Description                    |
+| --------- | -------------------------- | ------------------------------ |
+| objectId  | String (auto)              | Unique ID                      |
+| fromUser  | Pointer <User>             | User who gave the feedback     |
+| toUser    | Pointer <User>             | User who receives the feedback |
+| rating    | Number                     | Numeric rating (e.g. 1?5)      |
+| comment   | String (optional)          | Text comment                   |
+| order     | Pointer <Order> (optional) | Related order (for context)    |
+| createdAt | Date                       | Timestamp                      |
+
+* **Notes:**  After a transaction, a buyer might rate the seller (and vice versa).  We model this as a `Feedback` object pointing from `fromUser` to `toUser`.  ACLs: only the `fromUser` should be able to create this object, and possibly only `fromUser` and `toUser` can read it (set ACL accordingly).
+
+### ProductFeedback (User-to-Product)
+
+| Field     | Type                     | Description                         |
+| --------- | ------------------------ | ----------------------------------- |
+| objectId  | String (auto)            | Unique ID                           |
+| user      | Pointer <User>           | User who rated/reviewed the product |
+| product   | Pointer <ProductListing> | Product being reviewed              |
+| rating    | Number                   | Numeric rating (e.g. 1?5)           |
+| com

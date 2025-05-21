@@ -1,0 +1,66 @@
+## Project Summary
+
+### Build Configuration
+The project uses Gradle build scripts (`build.gradle.kts`). It includes the following plugins:
+- Android application and Kotlin support plugins.
+- Google Services and Firebase Crashlytics plugins for analytics and monitoring.
+- Support for Jetpack Compose framework for UI development.
+
+The `compileSdk`, `minSdk`, and `targetSdk` versions are set to 35 and 23 respectively.
+
+A dependence on Firebase and Parse is defined for authentication and backend services. Core Material Design is used for visuals.
+
+---
+
+### App Codebase
+
+#### App.kt
+This file initializes Firebase and Back4App services with configurations provided in string resources. The class extends the Android `Application` and registers all Parse model subclasses.
+
+#### MainActivity.kt
+This file represents the main activity of the app and sets up the UI scaffolding using Jetpack Compose themes. A Parse connectivity test runs on app launch, sending a test object for verification.
+
+It defines composable functions:
+- `Greeting(name: String)` displays a greeting message.
+
+---
+
+### Backend Implementation
+
+#### Data Models
+The project implements a comprehensive backend using Parse Server and Firebase as described in the backend architecture document.
+
+- **User Model**: Extends ParseUser with role-based access (Farmer/GeneralUser), Firebase UID integration, and profile functionality.
+- **ProductListing Model**: Manages product details with traceability features and seller references.
+- **Order Model**: Handles transactions between buyers and sellers with status workflow (Pending→Confirmed→Shipped→Delivered→Completed).
+- **Media Model**: Stores and manages images/videos for products and user profiles.
+- **Feedback Models**: Two separate models for user-to-user and product feedback with ratings and comments.
+
+#### Repository Layer
+Repository classes implement business logic with proper ACL enforcement:
+
+- **UserRepository**: Manages user authentication with Firebase-Parse integration, creating synchronized identities across platforms.
+- **ProductRepository**: Handles product CRUD operations with seller-specific permissions.
+- **OrderRepository**: Manages order workflows with role-specific status transitions.
+- **FeedbackRepository**: Handles feedback submission with verification that users have completed transactions.
+
+#### Security Implementation
+- **Role-Based Access Control**: Uses Parse Roles to differentiate between Farmer and General Users.
+- **Object-Level ACL**: Each object sets appropriate read/write permissions (e.g., only sellers can edit their listings).
+- **Permission Validation**: Business logic validates operations based on user roles and object ownership.
+
+---
+
+### Themes and Styles
+
+#### Theme.kt
+It defines dynamic dark and light color schemes using Compose Material 3 abstractions.
+
+#### Color.kt
+It declares static color variables for different parts of the UI, used in theme definition.
+
+All UI components comply with the default system-wide theme or dynamic configurations from Android 12 onward.
+
+---
+
+This project is structured around modern Android development practices with Jetpack Compose for UI, Firebase for authentication and real-time features, and Back4App (Parse) for structured data storage with proper access control.

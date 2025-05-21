@@ -1,0 +1,37 @@
+{
+  "rules": {
+    "messages": {
+      "$convId": {
+        ".read": "auth != null && root.child('conversations').child($convId).child('members').val().contains(auth.uid)",
+        ".write": "auth != null && root.child('conversations').child($convId).child('members').val().contains(auth.uid)"
+      }
+    },
+    "conversations": {
+      "$convId": {
+        ".read": "auth != null && data.child('members').val().contains(auth.uid)",
+        ".write": "auth != null && (data.child('members').val().contains(auth.uid) || !data.exists())",
+        "members": {
+          ".validate": "newData.isArray() && newData.val().length == 2"
+        },
+        "lastMessage": {
+          ".validate": "newData.isString()"
+        },
+        "lastMessageTime": {
+          ".validate": "newData.isNumber()"
+        }
+      }
+    },
+    "user_status": {
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.uid === $uid",
+        "status": {
+          ".validate": "newData.isString()"
+        },
+        "lastSeen": {
+          ".validate": "newData.isNumber()"
+        }
+      }
+    }
+  }
+}
