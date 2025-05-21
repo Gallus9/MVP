@@ -9,16 +9,23 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.example.mvp.ui.components.FeaturedProducts
+import androidx.navigation.NavController
+import com.example.mvp.ui.viewmodels.ProductViewModel
 
 @Composable
-fun HomeScreen() {
+fun HomeScreen(navController: NavController, productViewModel: ProductViewModel) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.Top
     ) {
-        Text(text = "Home Screen")
+        Text(text = "Welcome to MVP Marketplace")
+        FeaturedProducts(
+            navController = navController,
+            productViewModel = productViewModel
+        )
     }
 }

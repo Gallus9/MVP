@@ -17,21 +17,27 @@ import com.example.mvp.ui.screens.marketplace.CreateListingScreen
 import com.example.mvp.ui.screens.marketplace.MarketplaceScreen
 import com.example.mvp.ui.screens.profile.ProfileScreen
 import com.example.mvp.ui.navigation.Screen
+import com.example.mvp.ui.viewmodels.ProductViewModel
+import com.example.mvp.ui.viewmodels.OrderViewModel
 
 @Composable
 fun AppNavigation(
     currentUser: User?,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    productViewModel: ProductViewModel,
+    orderViewModel: OrderViewModel
 ) {
     val navController = rememberNavController()
-    AppNavHost(navController, currentUser, onLogout)
+    AppNavHost(navController, currentUser, onLogout, productViewModel, orderViewModel)
 }
 
 @Composable
 fun AppNavHost(
     navController: NavHostController,
     currentUser: User?,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    productViewModel: ProductViewModel,
+    orderViewModel: OrderViewModel
 ) {
     val startDestination = if (currentUser == null) Screen.Login.route else Screen.Home.route
 
@@ -68,7 +74,7 @@ fun AppNavHost(
         }
         
         composable(Screen.Home.route) {
-            HomeScreen()
+            HomeScreen(navController, productViewModel)
         }
         
         composable(Screen.Marketplace.route) {
@@ -100,16 +106,23 @@ fun AppNavHost(
         
         composable(Screen.ProductDetails.route) { backStackEntry ->
             val productId = backStackEntry.arguments?.getString("productId") ?: ""
+            // Placeholder for ProductDetailsScreen
             Text("Product Details for $productId")
+            // Once implemented, replace with:
+            // ProductDetailsScreen(navController, productViewModel, productId)
         }
         
         composable(Screen.Orders.route) {
             Text("Orders")
+            // Once implemented, replace with:
+            // OrdersScreen(navController, orderViewModel)
         }
         
         composable(Screen.OrderDetails.route) { backStackEntry ->
             val orderId = backStackEntry.arguments?.getString("orderId") ?: ""
             Text("Order Details for $orderId")
+            // Once implemented, replace with:
+            // OrderDetailsScreen(navController, orderViewModel, orderId)
         }
     }
 }

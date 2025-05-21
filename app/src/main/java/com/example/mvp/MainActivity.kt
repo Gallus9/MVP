@@ -17,9 +17,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.example.mvp.ui.MainViewModel
 import com.example.mvp.ui.navigation.AppNavigation
 import com.example.mvp.ui.theme.MVpTheme
+import com.example.mvp.ui.viewmodels.ProductViewModel
+import com.example.mvp.ui.viewmodels.OrderViewModel
 
 class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
+    private val productViewModel: ProductViewModel by viewModels()
+    private val orderViewModel: OrderViewModel by viewModels()
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -34,7 +38,9 @@ class MainActivity : ComponentActivity() {
                     val currentUser by viewModel.currentUser.collectAsState()
                     AppNavigation(
                         currentUser = currentUser,
-                        onLogout = { viewModel.logout() }
+                        onLogout = { viewModel.logout() },
+                        productViewModel = productViewModel,
+                        orderViewModel = orderViewModel
                     )
                 }
             }
