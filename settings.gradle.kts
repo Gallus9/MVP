@@ -20,6 +20,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "MVp"
-include(":app")
- 
+rootProject.name = "RoosterEnthusiasts"
+include(":app", ":core", ":community", ":traceability", ":marketplace", ":orders")

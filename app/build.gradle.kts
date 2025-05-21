@@ -43,8 +43,18 @@ android {
     }
 }
 
-dependencies {
+configurations {
+    all {
+        resolutionStrategy {
+            force("com.google.firebase:firebase-common:20.3.3")
+        }
+    }
+}
 
+dependencies {
+    implementation(platform("com.google.firebase:firebase-bom:32.0.0"))
+    implementation("com.google.firebase:firebase-auth-ktx")
+    implementation("com.google.firebase:firebase-database-ktx")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -55,8 +65,12 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.firebase.crashlytics)
     implementation(libs.parse)
-    implementation("com.google.firebase:firebase-auth-ktx:21.1.0")
-    implementation("com.google.firebase:firebase-database-ktx:20.2.2")
+    
+    implementation(project(":core"))
+    implementation(project(":community"))
+    implementation(project(":traceability"))
+    implementation(project(":marketplace"))
+    implementation(project(":orders"))
     
     // Navigation
     implementation("androidx.navigation:navigation-compose:2.7.7")
@@ -74,6 +88,9 @@ dependencies {
     implementation("com.google.dagger:hilt-android:2.48")
     kapt("com.google.dagger:hilt-compiler:2.48")
     implementation("androidx.hilt:hilt-navigation-compose:1.0.0")
+    
+    // Coil image loading
+    implementation("io.coil-kt:coil-compose:2.4.0")
     
     testImplementation(libs.junit)
     testImplementation(libs.mockito.core)

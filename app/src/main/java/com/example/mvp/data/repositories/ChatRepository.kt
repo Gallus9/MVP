@@ -139,12 +139,16 @@ class ChatRepository {
 
                 override fun onChildRemoved(snapshot: DataSnapshot) {
                     val messageId = snapshot.key
-                    messagesList.removeIf { it.id == messageId }
+                    val iterator = messagesList.iterator()
+                    while (iterator.hasNext()) {
+                        if (iterator.next().id == messageId) {
+                            iterator.remove()
+                        }
+                    }
                     trySend(messagesList.toList())
                 }
 
                 override fun onChildMoved(snapshot: DataSnapshot, previousChildName: String?) {
-                    // Not implemented for basic chat
                 }
 
                 override fun onCancelled(error: DatabaseError) {

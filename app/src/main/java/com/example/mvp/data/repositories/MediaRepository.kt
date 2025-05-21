@@ -75,6 +75,55 @@ class MediaRepository {
     }
 
     /**
+     * Upload media from a file
+     */
+    suspend fun uploadMedia(
+        file: File,
+        caption: String? = null,
+        product: ProductListing? = null,
+        mediaType: String = Media.TYPE_IMAGE
+    ): Result<Media> = withContext(Dispatchers.IO) {
+        try {
+            // Read file bytes
+            val inputStream = FileInputStream(file)
+            val fileBytes = inputStream.readBytes()
+            inputStream.close()
+            
+            // Create a filename
+            val filename = "media_${System.currentTimeMillis()}_${file.name}"
+            
+            // Create ParseFile
+            val parseFile = ParseFile(filename, fileBytes)
+            parseFile.save()
+
+            // Create Media object
+            val media = Media()
+            media.file = parseFile
+            media.owner = ParseUser.getCurrentUser() as User
+            media.caption = caption
+            media.mediaType = mediaType
+            
+            if (product != null) {
+                media.listing = product
+            }
+
+            // Save media object
+            media.save()
+            
+            // If this is for a product listing, add it to the relation
+            if (product != null) {
+                product.addImage(media)
+                product.save()
+            }
+            
+            return@withContext Result.success(media)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error uploading media from file: ${e.message}", e)
+            return@withContext Result.failure(e)
+        }
+    }
+
+    /**
      * Upload an image from a bitmap
      */
     suspend fun uploadImageFromBitmap(

@@ -3,113 +3,53 @@ package com.example.mvp.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.mvp.data.models.User
-import com.example.mvp.data.services.AuthService
-import kotlinx.coroutines.flow.SharingStarted
+import com.google.firebase.auth.FirebaseAuth
+import com.parse.ParseUser
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
-/**
- * ViewModel responsible for managing app-level state including authentication,
- * app initialization, and navigation control.
- */
 class MainViewModel : ViewModel() {
-
-    private val authService = AuthService()
-
-    // App UI state
-    sealed class AppState {
-        object Loading : AppState()
-        object Unauthenticated : AppState()
-        data class Authenticated(val user: User) : AppState()
-        data class Error(val message: String) : AppState()
+    
+    private val _currentUser = MutableStateFlow<User?>(null)
+    val currentUser: StateFlow<User?> = _currentUser.asStateFlow()
+    
+    init {
+        checkCurrentUser()
     }
     
-    // Map auth service state to app state
-    val appState: StateFlow<AppState> = authService.authState
-        .map { authState ->
-            when (authState) {
-                is AuthService.AuthState.Initializing -> AppState.Loading
-                is AuthService.AuthState.Authenticated -> {
-                    val user = authService.currentUser.value
-                    if (user != null) {
-                        AppState.Authenticated(user)
-                    } else {
-                        // This shouldn't happen normally, but handling it anyway
-                        AppState.Error("User authentication state mismatch")
-                    }
+    private fun checkCurrentUser() {
+        viewModelScope.launch {
+            try {
+                val parseUser = ParseUser.getCurrentUser()
+                if (parseUser != null && parseUser is User) {
+                    _currentUser.value = parseUser
                 }
-                is AuthService.AuthState.Unauthenticated -> AppState.Unauthenticated
-                is AuthService.AuthState.Error -> AppState.Error(authState.message)
+            } catch (e: Exception) {
+                // Error checking current user
             }
         }
-        .stateIn(
-            viewModelScope,
-            SharingStarted.WhileSubscribed(5000),
-            AppState.Loading
-        )
-
-    // Current authenticated user
-    val currentUser: StateFlow<User?> = authService.currentUser
-        .stateIn(
-            viewModelScope,
-            SharingStarted.WhileSubscribed(5000),
-            null
-        )
+    }
     
-    /**
-     * Login with email and password
-     */
-    suspend fun login(email: String, password: String): Result<User> {
-        return when (val result = authService.login(email, password)) {
-            is AuthService.AuthResult.Success -> Result.success(result.user)
-            is AuthService.AuthResult.Error -> Result.failure(result.throwable)
-        }
-    }
-
-    /**
-     * Register a new user
-     */
-    suspend fun register(
-        email: String,
-        password: String,
-        username: String,
-        isGeneralUser: Boolean
-    ): Result<User> {
-        return when (val result = authService.registerUser(email, password, username, isGeneralUser)) {
-            is AuthService.AuthResult.Success -> Result.success(result.user)
-            is AuthService.AuthResult.Error -> Result.failure(result.throwable)
-        }
-    }
-
-    /**
-     * Reset password for an email
-     */
-    suspend fun resetPassword(email: String): Result<Unit> {
-        return authService.resetPassword(email)
-    }
-
-    /**
-     * Logout the current user
-     */
     fun logout() {
         viewModelScope.launch {
-            authService.logout()
+            try {
+                // Logout from Parse
+                withContext(Dispatchers.IO) {
+                    ParseUser.logOut()
+                }
+                
+                // Logout from Firebase
+                FirebaseAuth.getInstance().signOut()
+                
+                // Clear current user
+                _currentUser.value = null
+            } catch (e: Exception) {
+                // Error during logout
+            }
         }
-    }
-
-    /**
-     * Check if the current user is a farmer
-     */
-    fun isFarmer(): Boolean {
-        return currentUser.value?.isFarmer() ?: false
-    }
-
-    /**
-     * Check if the user is authenticated
-     */
-    fun isAuthenticated(): Boolean {
-        return authService.isAuthenticated()
     }
 }

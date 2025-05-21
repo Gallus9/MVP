@@ -2,6 +2,7 @@ package com.example.mvp.ui.navigation
 
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -10,15 +11,24 @@ import com.example.mvp.data.models.User
 import com.example.mvp.ui.screens.auth.LoginScreen
 import com.example.mvp.ui.screens.auth.SignupScreen
 import com.example.mvp.ui.screens.cart.CartScreen
-import com.example.mvp.ui.screens.community.CommunityScreen
+import com.example.mvp.ui.screens.community.CommunityFeedScreen
+import com.example.mvp.ui.screens.community.CreatePostScreen
 import com.example.mvp.ui.screens.explore.ExploreScreen
 import com.example.mvp.ui.screens.home.HomeScreen
 import com.example.mvp.ui.screens.marketplace.CreateListingScreen
 import com.example.mvp.ui.screens.marketplace.MarketplaceScreen
-import com.example.mvp.ui.screens.profile.ProfileScreen
 import com.example.mvp.ui.navigation.Screen
+import com.example.mvp.ui.viewmodels.ProductDetailState
 import com.example.mvp.ui.viewmodels.ProductViewModel
 import com.example.mvp.ui.viewmodels.OrderViewModel
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Scaffold
+import androidx.compose.runtime.LaunchedEffect
+import androidx.navigation.NavBackStackEntry
+import com.example.mvp.ui.components.BottomNavBar
+import com.example.mvp.ui.components.AppScaffold
 
 @Composable
 fun AppNavigation(
@@ -74,48 +84,68 @@ fun AppNavHost(
         }
         
         composable(Screen.Home.route) {
-            HomeScreen(navController, productViewModel)
+            AppScaffold(navController = navController) {
+                HomeScreen(navController, productViewModel)
+            }
         }
         
         composable(Screen.Marketplace.route) {
-            MarketplaceScreen(navController)
+            AppScaffold(navController = navController) {
+                MarketplaceScreen(navController)
+            }
         }
         
         composable(Screen.Explore.route) {
-            ExploreScreen(navController)
+            AppScaffold(navController = navController) {
+                ExploreScreen(navController)
+            }
         }
         
         composable(Screen.CreateListing.route) {
             CreateListingScreen(navController)
         }
         
-        composable(Screen.Community.route) {
-            CommunityScreen(navController)
+        composable(Screen.CommunityFeed.route) {
+            AppScaffold(navController = navController) {
+                CommunityFeedScreen(
+                    onNavigateToCreatePost = { navController.navigate(Screen.CreatePost.route) },
+                    onNavigateToPostDetails = { post -> 
+                        navController.navigate(Screen.PostDetails.createRoute(post.objectId))
+                    },
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
+        }
+        
+        composable(Screen.CreatePost.route) {
+            CreatePostScreen(
+                onBackClick = { navController.popBackStack() },
+                onPostCreated = { 
+                    navController.popBackStack()
+                }
+            )
         }
         
         composable(Screen.Cart.route) {
-            CartScreen(navController)
+            AppScaffold(navController = navController) {
+                CartScreen(navController)
+            }
         }
         
         composable(Screen.Profile.route) {
-            ProfileScreen(
-                navController = navController,
-                onLogout = onLogout
-            )
+            AppScaffold(navController = navController) {
+                Text("Profile Placeholder")
+            }
         }
         
         composable(Screen.ProductDetails.route) { backStackEntry ->
             val productId = backStackEntry.arguments?.getString("productId") ?: ""
-            // Placeholder for ProductDetailsScreen
             Text("Product Details for $productId")
-            // Once implemented, replace with:
-            // ProductDetailsScreen(navController, productViewModel, productId)
+            // TODO: Implement ProductDetailsScreen with traceability info
         }
         
         composable(Screen.Orders.route) {
             Text("Orders")
-            // Once implemented, replace with:
-            // OrdersScreen(navController, orderViewModel)
         }
         
         composable(Screen.OrderDetails.route) { backStackEntry ->
@@ -123,6 +153,17 @@ fun AppNavHost(
             Text("Order Details for $orderId")
             // Once implemented, replace with:
             // OrderDetailsScreen(navController, orderViewModel, orderId)
+        }
+
+        composable(Screen.FarmerDashboard.route) {
+            Text("Farmer Dashboard Placeholder")
+            // TODO: Implement Farmer Dashboard with metrics like active listings and total orders
+        }
+
+        composable(Screen.PostDetails.route) { backStackEntry ->
+            val postId = backStackEntry.arguments?.getString("postId") ?: ""
+            Text("Post Details for $postId") 
+            // TODO: Implement PostDetailScreen
         }
     }
 }

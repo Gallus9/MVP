@@ -11,6 +11,11 @@
           <set>
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/app" />
+            <option value="$PROJECT_DIR$/community" />
+            <option value="$PROJECT_DIR$/core" />
+            <option value="$PROJECT_DIR$/marketplace" />
+            <option value="$PROJECT_DIR$/orders" />
+            <option value="$PROJECT_DIR$/traceability" />
           </set>
         </option>
       </GradleProjectSettings>

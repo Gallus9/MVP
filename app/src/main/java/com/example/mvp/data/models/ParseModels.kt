@@ -23,6 +23,7 @@ class User : ParseUser() {
         // Role names
         const val ROLE_FARMER = "Farmer"
         const val ROLE_GENERAL_USER = "GeneralUser"
+        const val ROLE_ENTHUSIAST = "Enthusiast"
     }
 
     // Firebase UID
@@ -75,7 +76,7 @@ class ProductListing : ParseObject() {
 
         // Query factory method
         fun getQuery(): ParseQuery<ProductListing> {
-            return ParseQuery(ProductListing::class.java)
+            return ParseQuery.getQuery(ProductListing::class.java)
         }
     }
 
@@ -150,7 +151,7 @@ class Order : ParseObject() {
 
         // Query factory method
         fun getQuery(): ParseQuery<Order> {
-            return ParseQuery(Order::class.java)
+            return ParseQuery.getQuery(Order::class.java)
         }
     }
 
@@ -204,7 +205,7 @@ class Media : ParseObject() {
 
         // Query factory method
         fun getQuery(): ParseQuery<Media> {
-            return ParseQuery(Media::class.java)
+            return ParseQuery.getQuery(Media::class.java)
         }
     }
 
@@ -259,7 +260,7 @@ class Feedback : ParseObject() {
 
         // Query factory method
         fun getQuery(): ParseQuery<Feedback> {
-            return ParseQuery(Feedback::class.java)
+            return ParseQuery.getQuery(Feedback::class.java)
         }
     }
 
@@ -303,7 +304,7 @@ class ProductFeedback : ParseObject() {
 
         // Query factory method
         fun getQuery(): ParseQuery<ProductFeedback> {
-            return ParseQuery(ProductFeedback::class.java)
+            return ParseQuery.getQuery(ProductFeedback::class.java)
         }
     }
 
@@ -326,4 +327,116 @@ class ProductFeedback : ParseObject() {
     var comment: String?
         get() = getString(KEY_COMMENT)
         set(value) = put(KEY_COMMENT, value ?: "")
+}
+
+/**
+ * Post model as defined in the schema.
+ * Represents content shared by users in the community feed.
+ */
+@ParseClassName("Post")
+class Post : ParseObject() {
+    companion object {
+        const val KEY_AUTHOR = "author"
+        const val KEY_CONTENT = "content"
+        const val KEY_MEDIA = "media"
+        const val KEY_LIKES_COUNT = "likesCount"
+        const val KEY_COMMENTS_COUNT = "commentsCount"
+        const val KEY_TAGS = "tags"
+        const val KEY_TITLE = "title"
+        const val KEY_IS_FEATURED = "isFeatured"
+
+        // Query factory method
+        fun getQuery(): ParseQuery<Post> {
+            return ParseQuery.getQuery(Post::class.java)
+        }
+    }
+
+    // Post author
+    var author: User?
+        get() = getParseUser(KEY_AUTHOR) as? User
+        set(value) = put(KEY_AUTHOR, value ?: JSONObject.NULL)
+
+    // Post content/body
+    var content: String?
+        get() = getString(KEY_CONTENT)
+        set(value) = put(KEY_CONTENT, value ?: "")
+
+    // Post title (optional)
+    var title: String?
+        get() = getString(KEY_TITLE)
+        set(value) = put(KEY_TITLE, value ?: "")
+
+    // Media attachments - relation to Media objects
+    fun getMediaRelation(): ParseRelation<Media> {
+        return getRelation(KEY_MEDIA)
+    }
+
+    // Add media to post
+    fun addMedia(media: Media) {
+        getMediaRelation().add(media)
+    }
+
+    // Remove media from post
+    fun removeMedia(media: Media) {
+        getMediaRelation().remove(media)
+    }
+
+    // Likes count
+    var likesCount: Int
+        get() = getInt(KEY_LIKES_COUNT)
+        set(value) = put(KEY_LIKES_COUNT, value)
+
+    // Comments count
+    var commentsCount: Int
+        get() = getInt(KEY_COMMENTS_COUNT)
+        set(value) = put(KEY_COMMENTS_COUNT, value)
+
+    // Tags as a list of strings
+    var tags: List<String>
+        get() = getList<String>(KEY_TAGS) ?: emptyList()
+        set(value) = put(KEY_TAGS, value)
+
+    // Is featured post
+    var isFeatured: Boolean
+        get() = getBoolean(KEY_IS_FEATURED)
+        set(value) = put(KEY_IS_FEATURED, value)
+}
+
+/**
+ * Comment model for social interactions.
+ * Represents comments on posts in the community feed.
+ */
+@ParseClassName("Comment")
+class Comment : ParseObject() {
+    companion object {
+        const val KEY_POST = "post"
+        const val KEY_AUTHOR = "author"
+        const val KEY_CONTENT = "content"
+        const val KEY_LIKES_COUNT = "likesCount"
+
+        // Query factory method
+        fun getQuery(): ParseQuery<Comment> {
+            return ParseQuery.getQuery(Comment::class.java)
+        }
+    }
+
+    // Associated post
+    var post: Post?
+        get() = getParseObject(KEY_POST) as? Post
+        set(value) = put(KEY_POST, value ?: JSONObject.NULL)
+
+    // Comment author
+    var author: User?
+        get() = getParseUser(KEY_AUTHOR) as? User
+        set(value) = put(KEY_AUTHOR, value ?: JSONObject.NULL)
+
+    // Comment text
+    var content: String?
+        get() = getString(KEY_CONTENT)
+        set(value) = put(KEY_CONTENT, value ?: "")
+
+    // Likes count
+    var likesCount: Int
+        get() = getInt(KEY_LIKES_COUNT)
+        set(value) = put(KEY_LIKES_COUNT, value)
 }

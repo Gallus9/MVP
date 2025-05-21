@@ -10,13 +10,17 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
@@ -24,18 +28,37 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.mvp.data.models.User
-import com.example.mvp.ui.MainViewModel
-import kotlinx.coroutines.launch
+import com.example.mvp.ui.viewmodels.AuthState
+import com.example.mvp.ui.viewmodels.AuthViewModel
 
 @Composable
 fun LoginScreen(
     onLoginSuccess: (User) -> Unit = {},
     onNavigateToSignup: () -> Unit = {}
 ) {
-    val viewModel: MainViewModel = viewModel()
-    val coroutineScope = rememberCoroutineScope()
-    val emailState = remember { mutableStateOf("") }
-    val passwordState = remember { mutableStateOf("") }
+    val viewModel: AuthViewModel = viewModel()
+    val authState by viewModel.authState.collectAsState()
+    val currentUser by viewModel.currentUser.collectAsState()
+    
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var errorMessage by remember { mutableStateOf("") }
+    
+    LaunchedEffect(currentUser) {
+        currentUser?.let { user ->
+            onLoginSuccess(user)
+        }
+    }
+    
+    LaunchedEffect(authState) {
+        when (authState) {
+            is AuthState.Error -> {
+                errorMessage = (authState as AuthState.Error).message
+                Log.e("LoginScreen", "Auth Error: $errorMessage")
+            }
+            else -> { /* Handle other states if needed */ }
+        }
+    }
     
     Column(
         modifier = Modifier
@@ -44,48 +67,77 @@ fun LoginScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Text(text = "Login to MVP Marketplace")
+        Text(
+            text = "Login to Rooster Enthusiasts",
+            style = MaterialTheme.typography.headlineMedium
+        )
         
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(24.dp))
         
         OutlinedTextField(
-            value = emailState.value,
-            onValueChange = { emailState.value = it },
-            label = { Text("Email or Username") },
+            value = email,
+            onValueChange = { email = it },
+            label = { Text("Email") },
             modifier = Modifier.fillMaxWidth()
         )
         
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(12.dp))
         
         OutlinedTextField(
-            value = passwordState.value,
-            onValueChange = { passwordState.value = it },
+            value = password,
+            onValueChange = { password = it },
             label = { Text("Password") },
             modifier = Modifier.fillMaxWidth(),
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
         )
         
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        Button(
+            onClick = {
+                if (validate(email, password)) {
+                    errorMessage = ""
+                    viewModel.login(email, password)
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = authState !is AuthState.Loading
+        ) {
+            if (authState is AuthState.Loading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.height(24.dp),
+                    color = MaterialTheme.colorScheme.onPrimary
+                )
+            } else {
+                Text("Login")
+            }
+        }
+        
+        if (errorMessage.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = errorMessage,
+                color = MaterialTheme.colorScheme.error,
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+        
         Spacer(modifier = Modifier.height(16.dp))
         
-        Button(onClick = {
-            coroutineScope.launch {
-                viewModel.login(emailState.value, passwordState.value)
-                    .onSuccess { user ->
-                        onLoginSuccess(user)
-                    }
-                    .onFailure { error ->
-                        Log.e("Login", "Failed: ${error.message}")
-                    }
-            }
-        }) {
-            Text("Login")
+        Button(
+            onClick = onNavigateToSignup,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Don't have an account? Sign Up")
         }
-        
-        Spacer(modifier = Modifier.height(8.dp))
-        
-        Button(onClick = onNavigateToSignup) {
-            Text("Go to Signup")
-        }
+    }
+}
+
+private fun validate(email: String, password: String): Boolean {
+    return when {
+        email.isBlank() -> false.also { Log.d("Login", "Validation failed: Email is blank") }
+        password.isBlank() -> false.also { Log.d("Login", "Validation failed: Password is blank") }
+        else -> true
     }
 }
