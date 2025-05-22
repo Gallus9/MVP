@@ -1,7 +1,7 @@
 package com.example.mvp.ui.viewmodels
 
 import android.util.Log
-import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.ViewModel
 import com.example.mvp.core.base.BaseViewModel
 import com.example.mvp.core.base.UiEffect
 import com.example.mvp.core.base.UiEvent
@@ -9,6 +9,9 @@ import com.example.mvp.core.base.UiState
 import com.example.mvp.data.models.Order
 import com.example.mvp.data.models.ProductListing
 import com.example.mvp.data.models.User
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resumeWithException
@@ -20,9 +23,13 @@ class OrderViewModel : BaseViewModel<OrderEvent, OrderState, OrderEffect>() {
         private const val TAG = "OrderViewModel"
     }
     
+    private val scope: CoroutineScope = object : CoroutineScope {
+        override val coroutineContext = Dispatchers.Main + Job()
+    }
+    
     // Fetch all orders for a user (as buyer)
     private fun fetchBuyerOrders(user: User) {
-        viewModelScope.launch {
+        scope.launch {
             try {
                 setState { copy(isLoading = true) }
                 Log.d(TAG, "Fetching buyer orders for user: ${user.username}")
@@ -40,7 +47,7 @@ class OrderViewModel : BaseViewModel<OrderEvent, OrderState, OrderEffect>() {
     
     // Fetch all orders for a user (as seller)
     private fun fetchSellerOrders(user: User) {
-        viewModelScope.launch {
+        scope.launch {
             try {
                 setState { copy(isLoading = true) }
                 Log.d(TAG, "Fetching seller orders for user: ${user.username}")
@@ -58,7 +65,7 @@ class OrderViewModel : BaseViewModel<OrderEvent, OrderState, OrderEffect>() {
     
     // Get a specific order by ID
     private fun fetchOrderById(orderId: String) {
-        viewModelScope.launch {
+        scope.launch {
             try {
                 setState { copy(isLoading = true) }
                 Log.d(TAG, "Fetching order details for ID: $orderId")
@@ -82,7 +89,7 @@ class OrderViewModel : BaseViewModel<OrderEvent, OrderState, OrderEffect>() {
     
     // Create a new order
     private fun createOrder(product: ProductListing, buyer: User, quantity: Int) {
-        viewModelScope.launch {
+        scope.launch {
             try {
                 setState { copy(isLoading = true) }
                 Log.d(TAG, "Creating new order for product: ${product.objectId}")
@@ -115,7 +122,7 @@ class OrderViewModel : BaseViewModel<OrderEvent, OrderState, OrderEffect>() {
     
     // Update order status
     private fun updateOrderStatus(order: Order, newStatus: String) {
-        viewModelScope.launch {
+        scope.launch {
             try {
                 setState { copy(isLoading = true) }
                 Log.d(TAG, "Updating order status to $newStatus for order: ${order.objectId}")

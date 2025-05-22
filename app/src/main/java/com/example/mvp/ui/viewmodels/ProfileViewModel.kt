@@ -1,7 +1,7 @@
 package com.example.mvp.ui.viewmodels
 
 import android.util.Log
-import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.ViewModel
 import com.example.mvp.core.base.BaseViewModel
 import com.example.mvp.core.base.UiEffect
 import com.example.mvp.core.base.UiEvent
@@ -11,6 +11,9 @@ import com.example.mvp.data.models.Media
 import com.example.mvp.data.models.Order
 import com.example.mvp.data.models.User
 import com.parse.ParseFile
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
@@ -22,9 +25,13 @@ class ProfileViewModel : BaseViewModel<ProfileEvent, ProfileState, ProfileEffect
         private const val TAG = "ProfileViewModel"
     }
     
+    private val scope: CoroutineScope = object : CoroutineScope {
+        override val coroutineContext = Dispatchers.Main + Job()
+    }
+    
     // Get user profile
     private fun fetchUserProfile(userId: String) {
-        viewModelScope.launch {
+        scope.launch {
             try {
                 setState { copy(isLoading = true) }
                 Log.d(TAG, "Fetching user profile for ID: $userId")
@@ -48,7 +55,7 @@ class ProfileViewModel : BaseViewModel<ProfileEvent, ProfileState, ProfileEffect
     
     // Update profile image
     private fun updateProfileImage(user: User, imageData: ByteArray) {
-        viewModelScope.launch {
+        scope.launch {
             try {
                 setState { copy(isLoading = true) }
                 Log.d(TAG, "Updating profile image for user: ${user.username}")
@@ -80,7 +87,7 @@ class ProfileViewModel : BaseViewModel<ProfileEvent, ProfileState, ProfileEffect
     
     // Get user feedback
     private fun fetchUserFeedback(user: User) {
-        viewModelScope.launch {
+        scope.launch {
             try {
                 setState { copy(isLoadingFeedback = true) }
                 Log.d(TAG, "Fetching feedback for user: ${user.username}")
@@ -98,7 +105,7 @@ class ProfileViewModel : BaseViewModel<ProfileEvent, ProfileState, ProfileEffect
     
     // Give feedback to a user
     private fun giveFeedback(fromUser: User, toUser: User, rating: Int, comment: String?, orderId: String? = null) {
-        viewModelScope.launch {
+        scope.launch {
             try {
                 setState { copy(isLoadingFeedback = true) }
                 Log.d(TAG, "Giving feedback to user: ${toUser.username}")

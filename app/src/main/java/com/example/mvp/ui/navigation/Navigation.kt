@@ -17,10 +17,12 @@ import com.example.mvp.ui.screens.explore.ExploreScreen
 import com.example.mvp.ui.screens.home.HomeScreen
 import com.example.mvp.ui.screens.marketplace.CreateListingScreen
 import com.example.mvp.ui.screens.marketplace.MarketplaceScreen
+import com.example.mvp.ui.screens.orders.OrderListScreen
+import com.example.mvp.ui.screens.profile.ProfileScreen
 import com.example.mvp.ui.navigation.Screen
-import com.example.mvp.ui.viewmodels.ProductDetailState
 import com.example.mvp.ui.viewmodels.ProductViewModel
 import com.example.mvp.ui.viewmodels.OrderViewModel
+import com.example.mvp.ui.viewmodels.ProfileViewModel
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
@@ -35,10 +37,11 @@ fun AppNavigation(
     currentUser: User?,
     onLogout: () -> Unit,
     productViewModel: ProductViewModel,
-    orderViewModel: OrderViewModel
+    orderViewModel: OrderViewModel,
+    profileViewModel: ProfileViewModel
 ) {
     val navController = rememberNavController()
-    AppNavHost(navController, currentUser, onLogout, productViewModel, orderViewModel)
+    AppNavHost(navController, currentUser, onLogout, productViewModel, orderViewModel, profileViewModel)
 }
 
 @Composable
@@ -47,7 +50,8 @@ fun AppNavHost(
     currentUser: User?,
     onLogout: () -> Unit,
     productViewModel: ProductViewModel,
-    orderViewModel: OrderViewModel
+    orderViewModel: OrderViewModel,
+    profileViewModel: ProfileViewModel
 ) {
     val startDestination = if (currentUser == null) Screen.Login.route else Screen.Home.route
 
@@ -134,7 +138,13 @@ fun AppNavHost(
         
         composable(Screen.Profile.route) {
             AppScaffold(navController = navController) {
-                Text("Profile Placeholder")
+                currentUser?.let { user ->
+                    ProfileScreen(
+                        viewModel = profileViewModel,
+                        userId = user.objectId ?: "",
+                        onEditProfileClick = { /* TODO: Implement edit profile navigation */ }
+                    )
+                } ?: Text("No user data available")
             }
         }
         
@@ -145,7 +155,18 @@ fun AppNavHost(
         }
         
         composable(Screen.Orders.route) {
-            Text("Orders")
+            AppScaffold(navController = navController) {
+                currentUser?.let { user ->
+                    OrderListScreen(
+                        viewModel = orderViewModel,
+                        user = user,
+                        isBuyer = !user.isFarmer(),
+                        onOrderClick = { order ->
+                            navController.navigate(Screen.OrderDetails.createRoute(order.objectId ?: ""))
+                        }
+                    )
+                } ?: Text("No user data available")
+            }
         }
         
         composable(Screen.OrderDetails.route) { backStackEntry ->
