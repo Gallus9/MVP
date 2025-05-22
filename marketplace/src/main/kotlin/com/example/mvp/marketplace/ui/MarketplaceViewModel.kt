@@ -38,7 +38,7 @@ class MarketplaceViewModel @Inject constructor(
                     setState { copy(isLoading = true) }
                 }
                 .catch { e ->
-                    Log.e(TAG, "Error loading products", e)
+                    Log.e(TAG, "Error loading products: ${e.message ?: "Unknown error"}", e)
                     setState { copy(isLoading = false) }
                     setEffect { MarketplaceEffect.ShowError(e.message ?: "Failed to load products") }
                 }
@@ -73,7 +73,7 @@ class MarketplaceViewModel @Inject constructor(
                     setState { copy(isCreatingProduct = true) }
                 }
                 .catch { e ->
-                    Log.e(TAG, "Error creating product", e)
+                    Log.e(TAG, "Error creating product: ${e.message ?: "Unknown error"}", e)
                     setState { copy(isCreatingProduct = false) }
                     setEffect { MarketplaceEffect.ShowError(e.message ?: "Failed to create product") }
                 }

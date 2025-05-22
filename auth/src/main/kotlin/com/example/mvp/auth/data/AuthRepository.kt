@@ -35,15 +35,14 @@ class AuthRepository @Inject constructor() {
                 if (parseUser != null && parseUser is User) {
                     Resource.Success(parseUser)
                 } else {
-                    // Firebase user exists but not in Parse
                     firebaseAuth.signOut()
-                    Resource.Error("User session inconsistent")
+                    Resource.Error("User session inconsistent - Firebase user exists but Parse user is null or invalid")
                 }
             } else {
-                Resource.Error("No user logged in")
+                Resource.Error("No user logged in - Firebase user is null")
             }
         } catch (e: Exception) {
-            Resource.Error(e.message ?: "Error checking current user")
+            Resource.Error("Error checking current user: ${e.message}", cause = e)
         }
     }
     
@@ -67,18 +66,18 @@ class AuthRepository @Inject constructor() {
                         Resource.Success(parseUser)
                     } else {
                         firebaseAuth.signOut()
-                        Resource.Error("Parse login failed")
+                        Resource.Error("Parse login failed - Parse user is null or invalid")
                     }
                 } catch (e: Exception) {
                     // If Parse login fails, also logout from Firebase for consistency
                     firebaseAuth.signOut()
-                    Resource.Error("Parse login error: ${e.message}")
+                    Resource.Error("Parse login error: ${e.message}", cause = e)
                 }
             } else {
-                Resource.Error("Firebase login failed")
+                Resource.Error("Firebase login failed - No UID returned")
             }
         } catch (e: Exception) {
-            Resource.Error(e.message ?: "Login failed")
+            Resource.Error("Login failed: ${e.message}", cause = e)
         }
     }
     

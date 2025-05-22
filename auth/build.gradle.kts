@@ -1,5 +1,5 @@
 plugins {
-    id("com.android.library")
+    id("com.android.library") version "8.5.2"
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.hilt.android)
@@ -46,7 +46,7 @@ dependencies {
     implementation(project(":core"))
     
     // Firebase
-    implementation(platform("com.google.firebase:firebase-bom:33.14.0"))
+    implementation(libs.firebase.bom)
     implementation(libs.firebase.auth.ktx)
     
     // AndroidX
