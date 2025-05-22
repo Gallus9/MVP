@@ -17,6 +17,12 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.resume
 
+/**
+ * ViewModel for managing order-related data and operations.
+ * Handles fetching orders for buyers and sellers, creating new orders,
+ * updating order statuses, and fetching specific order details.
+ * Extends BaseViewModel to follow the event-state-effect pattern.
+ */
 class OrderViewModel : BaseViewModel<OrderEvent, OrderState, OrderEffect>() {
     
     companion object {

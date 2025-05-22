@@ -13,11 +13,14 @@ import com.example.mvp.ui.screens.auth.SignupScreen
 import com.example.mvp.ui.screens.cart.CartScreen
 import com.example.mvp.ui.screens.community.CommunityFeedScreen
 import com.example.mvp.ui.screens.community.CreatePostScreen
+import com.example.mvp.ui.screens.community.PostDetailsScreen
 import com.example.mvp.ui.screens.explore.ExploreScreen
 import com.example.mvp.ui.screens.home.HomeScreen
 import com.example.mvp.ui.screens.marketplace.CreateListingScreen
 import com.example.mvp.ui.screens.marketplace.MarketplaceScreen
+import com.example.mvp.ui.screens.marketplace.ProductDetailsScreen
 import com.example.mvp.ui.screens.orders.OrderListScreen
+import com.example.mvp.ui.screens.profile.EditProfileScreen
 import com.example.mvp.ui.screens.profile.ProfileScreen
 import com.example.mvp.ui.navigation.Screen
 import com.example.mvp.ui.viewmodels.ProductViewModel
@@ -31,7 +34,20 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.navigation.NavBackStackEntry
 import com.example.mvp.ui.components.BottomNavBar
 import com.example.mvp.ui.components.AppScaffold
+import com.example.mvp.ui.screens.farmer.FarmerDashboardScreen
+import com.example.mvp.ui.screens.orders.OrderDetailsScreen
 
+/**
+ * Composable function for setting up the app's navigation.
+ * This function initializes the navigation controller and determines the start destination
+ * based on the user's authentication status. It serves as the entry point for the app's navigation graph.
+ *
+ * @param currentUser The currently authenticated user, if any. Determines the start destination.
+ * @param onLogout Callback invoked when the user logs out.
+ * @param productViewModel ViewModel for managing product-related data.
+ * @param orderViewModel ViewModel for managing order-related data.
+ * @param profileViewModel ViewModel for managing profile-related data.
+ */
 @Composable
 fun AppNavigation(
     currentUser: User?,
@@ -44,6 +60,18 @@ fun AppNavigation(
     AppNavHost(navController, currentUser, onLogout, productViewModel, orderViewModel, profileViewModel)
 }
 
+/**
+ * Composable function for hosting the app's navigation graph.
+ * Defines all navigable routes and their corresponding screens. The start destination
+ * is determined based on whether a user is logged in.
+ *
+ * @param navController The NavHostController for managing navigation.
+ * @param currentUser The currently authenticated user, if any. Affects navigation logic.
+ * @param onLogout Callback invoked when the user logs out.
+ * @param productViewModel ViewModel for managing product-related data.
+ * @param orderViewModel ViewModel for managing order-related data.
+ * @param profileViewModel ViewModel for managing profile-related data.
+ */
 @Composable
 fun AppNavHost(
     navController: NavHostController,
@@ -142,7 +170,20 @@ fun AppNavHost(
                     ProfileScreen(
                         viewModel = profileViewModel,
                         userId = user.objectId ?: "",
-                        onEditProfileClick = { /* TODO: Implement edit profile navigation */ }
+                        onEditProfileClick = { navController.navigate("edit_profile") }
+                    )
+                } ?: Text("No user data available")
+            }
+        }
+        
+        composable("edit_profile") {
+            AppScaffold(navController = navController) {
+                currentUser?.let { user ->
+                    EditProfileScreen(
+                        viewModel = profileViewModel,
+                        userId = user.objectId ?: "",
+                        onSaveClick = { navController.popBackStack() },
+                        onCancelClick = { navController.popBackStack() }
                     )
                 } ?: Text("No user data available")
             }
@@ -150,8 +191,13 @@ fun AppNavHost(
         
         composable(Screen.ProductDetails.route) { backStackEntry ->
             val productId = backStackEntry.arguments?.getString("productId") ?: ""
-            Text("Product Details for $productId")
-            // TODO: Implement ProductDetailsScreen with traceability info
+            AppScaffold(navController = navController) {
+                ProductDetailsScreen(
+                    viewModel = productViewModel,
+                    productId = productId,
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
         }
         
         composable(Screen.Orders.route) {
@@ -171,20 +217,33 @@ fun AppNavHost(
         
         composable(Screen.OrderDetails.route) { backStackEntry ->
             val orderId = backStackEntry.arguments?.getString("orderId") ?: ""
-            Text("Order Details for $orderId")
-            // Once implemented, replace with:
-            // OrderDetailsScreen(navController, orderViewModel, orderId)
+            AppScaffold(navController = navController) {
+                OrderDetailsScreen(
+                    viewModel = orderViewModel,
+                    orderId = orderId,
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
         }
 
         composable(Screen.FarmerDashboard.route) {
-            Text("Farmer Dashboard Placeholder")
-            // TODO: Implement Farmer Dashboard with metrics like active listings and total orders
+            AppScaffold(navController = navController) {
+                FarmerDashboardScreen(
+                    productViewModel = productViewModel,
+                    orderViewModel = orderViewModel,
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
         }
 
         composable(Screen.PostDetails.route) { backStackEntry ->
             val postId = backStackEntry.arguments?.getString("postId") ?: ""
-            Text("Post Details for $postId") 
-            // TODO: Implement PostDetailScreen
+            AppScaffold(navController = navController) {
+                PostDetailsScreen(
+                    postId = postId,
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
         }
     }
 }

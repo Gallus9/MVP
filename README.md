@@ -1,122 +1,142 @@
-# MVP Marketplace App
+# RoosterEnthusiasts Mobile App
 
-## Project Overview
+## Overview
 
-The MVP Marketplace App is a mobile application that connects farmers directly with consumers. It
-enables farmers to list their products for sale and allows general users to browse, purchase, and
-track orders. The application is built using modern Android development practices with Jetpack
-Compose for the UI and Parse SDK for backend interactions.
+RoosterEnthusiasts is a mobile application designed to connect farmers and consumers in a
+marketplace for poultry products. The app facilitates user authentication, product listings, order
+management, and community engagement, with a focus on traceability and user feedback.
 
 ## Architecture
 
-### Backend
+The project follows the **MVVM (Model-View-ViewModel)** pattern, fully integrated with a
+`BaseViewModel` and `Resource` pattern for state management. Key architectural components include:
 
-The application uses Parse Server as a backend solution with the following models:
+- **Modularization**: The project is structured into distinct modules:
+   - `:app` - Main application module.
+   - `:core` - Core utilities and base components.
+   - `:community` - Features for community engagement and posts.
+   - `:traceability` - Functionality for tracking product origins.
+   - `:marketplace` - Product listing and creation features.
+   - `:orders` - Order management and tracking.
+   - `:auth` - User authentication and role-based navigation.
+- **State Management**: Utilizes an event-state-effect pattern across ViewModels for consistent
+  state handling.
+- **Dependency Management**: Centralized using Gradle version catalog for streamlined dependency
+  updates.
+- **Testing Infrastructure**: Includes Jacoco for coverage reports and Turbine for Flow testing.
 
-1. **User**
-    - Custom `User` class extending `ParseUser`
-    - Supports different roles (Farmer, GeneralUser)
-    - Integrated with Firebase Authentication
-    - Stores profile information and images
+## Features
 
-2. **Products**
-    - `ProductListing` model for marketplace items
-    - Support for traceability features
-    - Related media (images) through Parse relationships
+### Authentication Module
 
-3. **Orders**
-    - `Order` model that tracks transactions between buyers and sellers
-    - Status tracking (Pending, Confirmed, Shipped, Delivered, Completed, Cancelled)
-    - Associations with products, buyers, and sellers
+- Complete flow with Firebase and Parse integration for user authentication.
+- Role-based navigation for Farmers and Consumers with dedicated UI screens (`LoginScreen`,
+  `SignupScreen`).
 
-4. **Feedback**
-    - User-to-user feedback (`Feedback` model)
-    - Product feedback (`ProductFeedback` model)
-    - Rating system and comments
+### Marketplace Functionality
 
-5. **Media**
-    - Supports both images and videos
-    - Linked to products and user profiles
+- Core product listing and creation features with domain models, repositories, and use cases.
+- Initial UI setup for product listing via `ProductListScreen`, integrated into navigation.
 
-### Frontend
+### Orders Management
 
-The frontend is built with Jetpack Compose following MVVM architecture:
+- Refactored `OrderViewModel` to align with `BaseViewModel` pattern using a custom `CoroutineScope`.
+- UI components for order listing (`OrderListScreen`) and details (`OrderDetailsScreen`) implemented
+  with Compose.
+- Order status updates UI for sellers in `OrderDetailsScreen`.
 
-1. **ViewModels**
-    - `AuthViewModel`: Handles user authentication operations
-    - `ProductViewModel`: Manages product listings, creation, and fetching
-    - `OrderViewModel`: Handles order operations and status updates
-    - `ProfileViewModel`: Manages user profile data and feedback
+### Profile Management
 
-2. **Navigation**
-    - Navigation graph with multiple destinations
-    - Bottom navigation for main app sections
-    - Deep links for product details
+- Refactored `ProfileViewModel` with custom `CoroutineScope` for coroutine handling.
+- Profile UI via `ProfileScreen` to display user information and feedback.
+- Edit profile functionality with `EditProfileScreen` for updating user details and image uploads.
 
-3. **Screens**
-    - Auth: Login, Signup
-    - Home: Featured products, welcome information
-    - Marketplace: Product listings, product details
-    - Orders: Order history, order details
-    - Profile: User information, feedback, ratings
+### Navigation
 
-4. **Components**
-    - Product card for consistent product display
-    - Featured products carousel
-    - Order status badges
-    - Feedback display components
+- Updated app navigation graph to include routes for orders, profile, and edit profile screens,
+  ensuring seamless user flow.
+- Defined in `Navigation.kt` with role-based start destinations (e.g., `Home` for farmers,
+  `Marketplace` for consumers).
 
-## Implementation Status
+## Technical Debts
 
-### ✅ Core Configuration
+- **IDE Sync Issues**: Persistent Gradle sync issues need resolution to clear linter errors related
+  to dependencies.
+- **Incomplete UI Features**: Some UI components (e.g., order status updates, edit profile) require
+  further implementation or refinement.
+- **Testing Gaps**: Additional UI and integration tests needed for new components to ensure
+  reliability.
 
-- Firebase Authentication integrated
-- Parse initialization with local datastore enabled
-- Parse models registered for all data types
+## Recent Development Milestones
 
-### ✅ Authentication Integration
+- **ViewModel Refactor**: Completed for Orders and Profile management.
+- **UI Integration**: Added Orders and Profile screens.
+- **Navigation Updates**: Integrated routes for new screens.
 
-- User registration creates accounts in both Firebase and Parse
-- Login authenticates with both systems
-- Session management synchronized between platforms
-- User roles (Farmer/General User) properly enforced
+## Pending Tasks
 
-### ✅ Data Binding – API Layer
+- Implement comprehensive UI for order status updates.
+- Complete edit profile functionality with full validation and error handling.
+- Add comprehensive testing for new features, including unit and UI tests.
 
-- Repository pattern implemented for all data types
-- MediaRepository for handling file uploads
-- ProductRepository for marketplace listings
-- UserRepository for user management
-- OrderRepository for transaction handling
+## Setup Instructions
 
-### ✅ Realtime Messaging
+### Prerequisites
 
-- ChatRepository using Firebase Realtime Database
-- Message sending and receiving implemented
-- Conversation management and tracking
+- Android Studio with Kotlin plugin.
+- Gradle version compatible with the project (check `gradle/wrapper/gradle-wrapper.properties`).
+- Firebase and Parse SDK configurations.
 
-### ✅ Role-Based Navigation
+### Installation
 
-- Different navigation paths for Farmers vs. General Users
-- Dynamic bottom navigation based on user role
-- Access control for role-specific screens
+1. Clone the repository to your local machine.
+2. Open the project in Android Studio.
+3. Sync the project with Gradle to resolve dependencies.
+4. Configure Firebase and Parse credentials:
+   - Add `google-services.json` to the `app` directory for Firebase.
+   - Ensure Parse initialization in the app's `Application` class or main activity.
+5. Build and run the app on an emulator or physical device.
 
-### ✅ Security & Rules
+### Testing
 
-- Firebase Realtime Database rules implemented
-- Parse ACL setup for proper object permissions
+- Unit tests are located in `app/src/test/java` for ViewModels like `OrderViewModel` and
+  `ProfileViewModel`.
+- Run tests with `./gradlew test` from the project root.
+- Coverage reports can be generated with `./gradlew jacocoTestReport`.
 
-## Installation
+## Project Structure
 
-Ensure that you have Android Studio and the required SDKs installed, then:
+```
+RoosterEnthusiasts/
+│
+├── app/                    # Main application module
+│   ├── src/main/java/      # Main source code
+│   │   ├── com/example/mvp/ui/                # UI components and screens
+│   │   ├── com/example/mvp/data/              # Data models and repositories
+│   │   └── com/example/mvp/navigation/        # Navigation setup
+│   └── build.gradle.kts    # App module build script
+│
+├── core/                   # Core utilities and base components
+├── community/              # Community features
+├── traceability/           # Traceability features
+├── marketplace/            # Marketplace features
+├── orders/                 # Orders management
+├── auth/                   # Authentication module
+│
+├── gradle/                 # Gradle wrapper and configuration
+└── build.gradle.kts        # Top-level build script
+```
 
-1. Clone this repository
-2. Add required configuration for Parse Server and Firebase in your `local.properties` or
-   environment
-3. Open the project in Android Studio
-4. Connect a device or start an emulator
-5. Run the app through Android Studio
+## Contributing
 
-## Testing
+Contributions are welcome! Please follow these steps:
 
-Run the test suite to verify functionality:
+1. Fork the repository.
+2. Create a feature branch (`git checkout -b feature/your-feature`).
+3. Commit your changes (`git commit -m 'Add your feature'`).
+4. Push to the branch (`git push origin feature/your-feature`).
+5. Open a pull request.
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.

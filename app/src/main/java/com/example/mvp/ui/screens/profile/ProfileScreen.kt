@@ -21,6 +21,17 @@ import com.example.mvp.ui.viewmodels.ProfileEffect
 import com.example.mvp.ui.viewmodels.ProfileEvent
 import kotlinx.coroutines.flow.collectLatest
 
+/**
+ * Composable function for displaying a user's profile information.
+ * This screen shows user details such as username, email, role, and profile image,
+ * along with a list of feedback received by the user. It also provides an option
+ * to edit the profile.
+ *
+ * @param viewModel The ProfileViewModel instance for managing profile data and events.
+ * @param userId The unique identifier of the user whose profile is being displayed.
+ * @param onEditProfileClick Callback invoked when the user chooses to edit their profile.
+ * @param modifier Modifier for styling or positioning the composable.
+ */
 @Composable
 fun ProfileScreen(
     viewModel: ProfileViewModel,
@@ -132,6 +143,14 @@ fun ProfileScreen(
     }
 }
 
+/**
+ * Composable for displaying the user profile header with basic information.
+ * This includes the profile image, username, email, role, and an edit profile button.
+ *
+ * @param user The User object containing profile data.
+ * @param onEditClick Callback invoked when the user clicks the "Edit Profile" button.
+ * @param modifier Modifier for styling or positioning the composable.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileHeader(
@@ -201,6 +220,13 @@ fun ProfileHeader(
     }
 }
 
+/**
+ * Composable for displaying a single feedback card.
+ * This includes the feedback sender's username, rating, and comment.
+ *
+ * @param feedback The Feedback object containing the feedback data.
+ * @param modifier Modifier for styling or positioning the composable.
+ */
 @Composable
 fun FeedbackCard(
     feedback: Feedback,
