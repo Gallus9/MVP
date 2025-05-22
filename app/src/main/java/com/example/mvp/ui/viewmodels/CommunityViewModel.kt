@@ -1,15 +1,15 @@
+```
+```
 package com.example.mvp.ui.viewmodels
 
 import android.util.Log
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.mvp.core.base.BaseViewModel
+import com.example.mvp.core.base.Resource
 import com.example.mvp.data.models.Comment
 import com.example.mvp.data.models.Post
 import com.example.mvp.data.repositories.CommunityRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.io.File
 import javax.inject.Inject
@@ -17,22 +17,10 @@ import javax.inject.Inject
 @HiltViewModel
 class CommunityViewModel @Inject constructor(
     private val communityRepository: CommunityRepository
-) : ViewModel() {
+) : BaseViewModel<CommunityEvent, CommunityState, CommunityEffect>() {
 
     private val TAG = "CommunityViewModel"
 
-    private val _uiState = MutableStateFlow<CommunityUiState>(CommunityUiState.Loading)
-    val uiState: StateFlow<CommunityUiState> = _uiState.asStateFlow()
-    
-    private val _featuredPosts = MutableStateFlow<List<Post>>(emptyList())
-    val featuredPosts: StateFlow<List<Post>> = _featuredPosts.asStateFlow()
-    
-    private val _selectedPost = MutableStateFlow<Post?>(null)
-    val selectedPost: StateFlow<Post?> = _selectedPost.asStateFlow()
-    
-    private val _comments = MutableStateFlow<List<Comment>>(emptyList())
-    val comments: StateFlow<List<Comment>> = _comments.asStateFlow()
-    
     private var currentPage = 0
     
     init {
@@ -43,29 +31,29 @@ class CommunityViewModel @Inject constructor(
     /**
      * Load feed posts
      */
-    fun loadFeed() {
+    private fun loadFeed() {
         viewModelScope.launch {
-            _uiState.value = CommunityUiState.Loading
-            
+            setState { copy(feedState = Resource.Loading) }
             try {
                 val result = communityRepository.getPosts(0)
                 result.fold(
                     onSuccess = { posts ->
                         currentPage = 0
-                        _uiState.value = if (posts.isEmpty()) {
-                            CommunityUiState.Empty
-                        } else {
-                            CommunityUiState.Success(posts)
-                        }
+                        setState { copy(
+                            feedState = if (posts.isEmpty()) Resource.Success(emptyList()) else Resource.Success(posts),
+                            isEmptyFeed = posts.isEmpty()
+                        ) }
                     },
                     onFailure = { error ->
                         Log.e(TAG, "Error loading feed: ${error.message}", error)
-                        _uiState.value = CommunityUiState.Error(error.message ?: "Failed to load posts")
+                        setState { copy(feedState = Resource.Error(error.message ?: "Failed to load posts")) }
+                        setEffect { CommunityEffect.ShowError(error.message ?: "Failed to load posts") }
                     }
                 )
             } catch (e: Exception) {
                 Log.e(TAG, "Exception loading feed: ${e.message}", e)
-                _uiState.value = CommunityUiState.Error(e.message ?: "Unknown error")
+                setState { copy(feedState = Resource.Error(e.message ?: "Unknown error")) }
+                setEffect { CommunityEffect.ShowError(e.message ?: "Unknown error") }
             }
         }
     }
@@ -73,30 +61,32 @@ class CommunityViewModel @Inject constructor(
     /**
      * Load more posts (pagination)
      */
-    fun loadMorePosts() {
-        if (_uiState.value is CommunityUiState.Loading) return
+    private fun loadMorePosts() {
+        val currentFeedState = uiState.value.feedState
+        if (currentFeedState is Resource.Loading) return
         
         viewModelScope.launch {
-            val currentState = _uiState.value
-            if (currentState is CommunityUiState.Success) {
-                _uiState.value = CommunityUiState.LoadingMore(currentState.posts)
+            if (currentFeedState is Resource.Success) {
+                setState { copy(feedState = Resource.Loading) }
                 currentPage++
                 
                 try {
                     val result = communityRepository.getPosts(currentPage)
                     result.fold(
                         onSuccess = { newPosts ->
-                            val allPosts = currentState.posts + newPosts
-                            _uiState.value = CommunityUiState.Success(allPosts)
+                            val allPosts = currentFeedState.data + newPosts
+                            setState { copy(feedState = Resource.Success(allPosts)) }
                         },
                         onFailure = { error ->
                             Log.e(TAG, "Error loading more posts: ${error.message}", error)
-                            _uiState.value = currentState // Revert to previous state
+                            setState { copy(feedState = currentFeedState) } // Revert to previous state
+                            setEffect { CommunityEffect.ShowError(error.message ?: "Failed to load more posts") }
                         }
                     )
                 } catch (e: Exception) {
                     Log.e(TAG, "Exception loading more posts: ${e.message}", e)
-                    _uiState.value = currentState // Revert to previous state
+                    setState { copy(feedState = currentFeedState) } // Revert to previous state
+                    setEffect { CommunityEffect.ShowError(e.message ?: "Failed to load more posts") }
                 }
             }
         }
@@ -105,20 +95,22 @@ class CommunityViewModel @Inject constructor(
     /**
      * Load featured posts
      */
-    fun loadFeaturedPosts() {
+    private fun loadFeaturedPosts() {
         viewModelScope.launch {
             try {
                 val result = communityRepository.getFeaturedPosts()
                 result.fold(
                     onSuccess = { posts ->
-                        _featuredPosts.value = posts
+                        setState { copy(featuredPosts = posts) }
                     },
                     onFailure = { error ->
                         Log.e(TAG, "Error loading featured posts: ${error.message}", error)
+                        setEffect { CommunityEffect.ShowError(error.message ?: "Failed to load featured posts") }
                     }
                 )
             } catch (e: Exception) {
                 Log.e(TAG, "Exception loading featured posts: ${e.message}", e)
+                setEffect { CommunityEffect.ShowError(e.message ?: "Failed to load featured posts") }
             }
         }
     }
@@ -126,21 +118,24 @@ class CommunityViewModel @Inject constructor(
     /**
      * Create a new post
      */
-    fun createPost(title: String?, content: String, mediaFiles: List<File> = emptyList(), tags: List<String> = emptyList()) {
+    private fun createPost(title: String?, content: String, mediaFiles: List<File> = emptyList(), tags: List<String> = emptyList()) {
         viewModelScope.launch {
             try {
                 val result = communityRepository.createPost(title, content, mediaFiles, tags)
                 result.fold(
                     onSuccess = { post ->
+                        setEffect { CommunityEffect.PostCreated }
                         // Refresh feed to show new post
                         loadFeed()
                     },
                     onFailure = { error ->
                         Log.e(TAG, "Error creating post: ${error.message}", error)
+                        setEffect { CommunityEffect.ShowError(error.message ?: "Failed to create post") }
                     }
                 )
             } catch (e: Exception) {
                 Log.e(TAG, "Exception creating post: ${e.message}", e)
+                setEffect { CommunityEffect.ShowError(e.message ?: "Failed to create post") }
             }
         }
     }
@@ -148,36 +143,37 @@ class CommunityViewModel @Inject constructor(
     /**
      * Select a post to view its details
      */
-    fun selectPost(post: Post) {
-        _selectedPost.value = post
+    private fun selectPost(post: Post) {
+        setState { copy(selectedPost = post) }
         loadComments(post)
     }
     
     /**
      * Clear selected post
      */
-    fun clearSelectedPost() {
-        _selectedPost.value = null
-        _comments.value = emptyList()
+    private fun clearSelectedPost() {
+        setState { copy(selectedPost = null, comments = emptyList()) }
     }
     
     /**
      * Load comments for a post
      */
-    fun loadComments(post: Post) {
+    private fun loadComments(post: Post) {
         viewModelScope.launch {
             try {
                 val result = communityRepository.getComments(post, 0)
                 result.fold(
                     onSuccess = { newComments ->
-                        _comments.value = newComments
+                        setState { copy(comments = newComments) }
                     },
                     onFailure = { error ->
                         Log.e(TAG, "Error loading comments: ${error.message}", error)
+                        setEffect { CommunityEffect.ShowError(error.message ?: "Failed to load comments") }
                     }
                 )
             } catch (e: Exception) {
                 Log.e(TAG, "Exception loading comments: ${e.message}", e)
+                setEffect { CommunityEffect.ShowError(e.message ?: "Failed to load comments") }
             }
         }
     }
@@ -185,8 +181,8 @@ class CommunityViewModel @Inject constructor(
     /**
      * Add a comment to the current selected post
      */
-    fun addComment(content: String) {
-        val post = _selectedPost.value ?: return
+    private fun addComment(content: String) {
+        val post = uiState.value.selectedPost ?: return
         
         viewModelScope.launch {
             try {
@@ -195,16 +191,19 @@ class CommunityViewModel @Inject constructor(
                     onSuccess = { comment ->
                         // Refresh comments
                         loadComments(post)
-                        
-                        // Update selected post with new comment count
-                        _selectedPost.value = post.apply { commentsCount++ }
+                        // Update selected post with new comment count without direct mutation
+                        val updatedPost = post.copy() // Assuming Post is a data class, create a copy
+                        setState { copy(selectedPost = updatedPost) }
+                        setEffect { CommunityEffect.CommentAdded }
                     },
                     onFailure = { error ->
                         Log.e(TAG, "Error adding comment: ${error.message}", error)
+                        setEffect { CommunityEffect.ShowError(error.message ?: "Failed to add comment") }
                     }
                 )
             } catch (e: Exception) {
                 Log.e(TAG, "Exception adding comment: ${e.message}", e)
+                setEffect { CommunityEffect.ShowError(e.message ?: "Failed to add comment") }
             }
         }
     }
@@ -212,37 +211,88 @@ class CommunityViewModel @Inject constructor(
     /**
      * Like or unlike a post
      */
-    fun togglePostLike(post: Post) {
+    private fun togglePostLike(post: Post) {
         viewModelScope.launch {
             try {
                 val result = communityRepository.togglePostLike(post)
                 result.fold(
                     onSuccess = { updatedPost ->
                         // If this is the selected post, update it
-                        if (_selectedPost.value?.objectId == updatedPost.objectId) {
-                            _selectedPost.value = updatedPost
+                        if (uiState.value.selectedPost?.objectId == updatedPost.objectId) {
+                            setState { copy(selectedPost = updatedPost) }
                         }
-                        
-                        // The repository already updates the posts flow
+                        // Update feed if the post is in the list
+                        val currentFeed = uiState.value.feedState
+                        if (currentFeed is Resource.Success) {
+                            val updatedFeed = currentFeed.data.map {
+                                if (it.objectId == updatedPost.objectId) updatedPost else it
+                            }
+                            setState { copy(feedState = Resource.Success(updatedFeed)) }
+                        }
+                        // Update featured posts if the post is there
+                        val currentFeatured = uiState.value.featuredPosts
+                        val updatedFeatured = currentFeatured.map {
+                            if (it.objectId == updatedPost.objectId) updatedPost else it
+                        }
+                        if (currentFeatured != updatedFeatured) {
+                            setState { copy(featuredPosts = updatedFeatured) }
+                        }
+                        setEffect { CommunityEffect.LikeToggled }
                     },
                     onFailure = { error ->
                         Log.e(TAG, "Error toggling like: ${error.message}", error)
+                        setEffect { CommunityEffect.ShowError(error.message ?: "Failed to toggle like") }
                     }
                 )
             } catch (e: Exception) {
                 Log.e(TAG, "Exception toggling like: ${e.message}", e)
+                setEffect { CommunityEffect.ShowError(e.message ?: "Failed to toggle like") }
             }
+        }
+    }
+    
+    override fun createInitialState(): CommunityState = CommunityState()
+    
+    override fun handleEvent(event: CommunityEvent) {
+        when (event) {
+            is CommunityEvent.LoadFeed -> loadFeed()
+            is CommunityEvent.LoadMorePosts -> loadMorePosts()
+            is CommunityEvent.LoadFeaturedPosts -> loadFeaturedPosts()
+            is CommunityEvent.CreatePost -> createPost(event.title, event.content, event.mediaFiles, event.tags)
+            is CommunityEvent.SelectPost -> selectPost(event.post)
+            is CommunityEvent.ClearSelectedPost -> clearSelectedPost()
+            is CommunityEvent.LoadComments -> event.post?.let { loadComments(it) }
+            is CommunityEvent.AddComment -> addComment(event.content)
+            is CommunityEvent.TogglePostLike -> togglePostLike(event.post)
         }
     }
 }
 
-/**
- * UI state for the community feed
- */
-sealed class CommunityUiState {
-    object Loading : CommunityUiState()
-    data class LoadingMore(val posts: List<Post>) : CommunityUiState()
-    data class Success(val posts: List<Post>) : CommunityUiState()
-    object Empty : CommunityUiState()
-    data class Error(val message: String) : CommunityUiState()
+sealed class CommunityEvent : com.example.mvp.core.base.UiEvent {
+    object LoadFeed : CommunityEvent()
+    object LoadMorePosts : CommunityEvent()
+    object LoadFeaturedPosts : CommunityEvent()
+    data class CreatePost(val title: String?, val content: String, val mediaFiles: List<File> = emptyList(), val tags: List<String> = emptyList()) : CommunityEvent()
+    data class SelectPost(val post: Post) : CommunityEvent()
+    object ClearSelectedPost : CommunityEvent()
+    data class LoadComments(val post: Post) : CommunityEvent()
+    data class AddComment(val content: String) : CommunityEvent()
+    data class TogglePostLike(val post: Post) : CommunityEvent()
 }
+
+data class CommunityState(
+    val feedState: Resource<List<Post>> = Resource.Success(emptyList()),
+    val isEmptyFeed: Boolean = false,
+    val featuredPosts: List<Post> = emptyList(),
+    val selectedPost: Post? = null,
+    val comments: List<Comment> = emptyList()
+) : com.example.mvp.core.base.UiState
+
+sealed class CommunityEffect : com.example.mvp.core.base.UiEffect {
+    object PostCreated : CommunityEffect()
+    object CommentAdded : CommunityEffect()
+    object LikeToggled : CommunityEffect()
+    data class ShowError(val message: String) : CommunityEffect()
+}
+```
+```

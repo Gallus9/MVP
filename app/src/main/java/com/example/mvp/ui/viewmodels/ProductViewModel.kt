@@ -1,91 +1,101 @@
 package com.example.mvp.ui.viewmodels
 
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.mvp.core.base.BaseViewModel
+import com.example.mvp.core.base.Resource
 import com.example.mvp.data.models.Media
 import com.example.mvp.data.models.ProductListing
 import com.example.mvp.data.models.User
 import com.parse.ParseFile
 import com.parse.ParseQuery
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
-sealed class ProductListState {
-    object Idle : ProductListState()
-    object Loading : ProductListState()
-    data class Error(val message: String) : ProductListState()
-    data class Success(val products: List<ProductListing>) : ProductListState()
+sealed class ProductEvent : com.example.mvp.core.base.UiEvent {
+    data class FetchProducts(val limit: Int = 20) : ProductEvent()
+    data class FetchProductsBySeller(val seller: User, val limit: Int = 20) : ProductEvent()
+    data class FetchProductDetail(val productId: String) : ProductEvent()
+    data class CreateProduct(
+        val title: String,
+        val description: String,
+        val price: Double,
+        val isTraceable: Boolean,
+        val traceId: String?,
+        val imageFiles: List<ByteArray>,
+        val mimeTypes: List<String>,
+        val currentUser: User
+    ) : ProductEvent()
 }
 
-sealed class ProductDetailState {
-    object Idle : ProductDetailState()
-    object Loading : ProductDetailState()
-    data class Error(val message: String) : ProductDetailState()
-    data class Success(val product: ProductListing, val images: List<Media>) : ProductDetailState()
+data class ProductState(
+    val productList: Resource<List<ProductListing>> = Resource.Success(emptyList()),
+    val productDetail: Resource<Pair<ProductListing, List<Media>>>? = null
+) : com.example.mvp.core.base.UiState
+
+sealed class ProductEffect : com.example.mvp.core.base.UiEffect {
+    object ProductCreated : ProductEffect()
+    data class ShowError(val message: String) : ProductEffect()
 }
 
-class ProductViewModel : ViewModel() {
+class ProductViewModel : BaseViewModel<ProductEvent, ProductState, ProductEffect>() {
     
-    private val _productListState = MutableStateFlow<ProductListState>(ProductListState.Idle)
-    val productListState: StateFlow<ProductListState> = _productListState.asStateFlow()
-    
-    private val _productDetailState = MutableStateFlow<ProductDetailState>(ProductDetailState.Idle)
-    val productDetailState: StateFlow<ProductDetailState> = _productDetailState.asStateFlow()
+    init {
+        // Initialize with idle state
+        setState { ProductState() }
+    }
     
     // Fetch all product listings
-    fun fetchProducts(limit: Int = 20) {
+    private fun fetchProducts(limit: Int = 20) {
         viewModelScope.launch {
             try {
-                _productListState.value = ProductListState.Loading
-                
+                setState { copy(productList = Resource.Loading) }
                 val products = getProducts(limit)
-                _productListState.value = ProductListState.Success(products)
+                setState { copy(productList = Resource.Success(products)) }
             } catch (e: Exception) {
-                _productListState.value = ProductListState.Error(e.message ?: "Failed to fetch products")
+                setState { copy(productList = Resource.Error(e.message ?: "Failed to fetch products")) }
+                setEffect { ProductEffect.ShowError(e.message ?: "Failed to fetch products") }
             }
         }
     }
     
     // Fetch products by seller
-    fun fetchProductsBySeller(seller: User, limit: Int = 20) {
+    private fun fetchProductsBySeller(seller: User, limit: Int = 20) {
         viewModelScope.launch {
             try {
-                _productListState.value = ProductListState.Loading
-                
+                setState { copy(productList = Resource.Loading) }
                 val products = getProductsBySeller(seller, limit)
-                _productListState.value = ProductListState.Success(products)
+                setState { copy(productList = Resource.Success(products)) }
             } catch (e: Exception) {
-                _productListState.value = ProductListState.Error(e.message ?: "Failed to fetch products")
+                setState { copy(productList = Resource.Error(e.message ?: "Failed to fetch products")) }
+                setEffect { ProductEffect.ShowError(e.message ?: "Failed to fetch products") }
             }
         }
     }
     
     // Fetch a single product by ID along with its images
-    fun fetchProductDetail(productId: String) {
+    private fun fetchProductDetail(productId: String) {
         viewModelScope.launch {
             try {
-                _productDetailState.value = ProductDetailState.Loading
-                
+                setState { copy(productDetail = Resource.Loading) }
                 val product = getProductById(productId)
                 if (product != null) {
                     val images = getProductImages(product)
-                    _productDetailState.value = ProductDetailState.Success(product, images)
+                    setState { copy(productDetail = Resource.Success(Pair(product, images))) }
                 } else {
-                    _productDetailState.value = ProductDetailState.Error("Product not found")
+                    setState { copy(productDetail = Resource.Error("Product not found")) }
+                    setEffect { ProductEffect.ShowError("Product not found") }
                 }
             } catch (e: Exception) {
-                _productDetailState.value = ProductDetailState.Error(e.message ?: "Failed to fetch product details")
+                setState { copy(productDetail = Resource.Error(e.message ?: "Failed to fetch product details")) }
+                setEffect { ProductEffect.ShowError(e.message ?: "Failed to fetch product details") }
             }
         }
     }
     
     // Create a new product listing
-    fun createProduct(
+    private fun createProduct(
         title: String,
         description: String,
         price: Double,
@@ -97,6 +107,7 @@ class ProductViewModel : ViewModel() {
     ) {
         viewModelScope.launch {
             try {
+                setState { copy(productList = Resource.Loading) }
                 // Create the product
                 val product = ProductListing()
                 product.title = title
@@ -129,9 +140,12 @@ class ProductViewModel : ViewModel() {
                 }
                 
                 // Refresh product list
-                fetchProducts()
+                val products = getProducts(20)
+                setState { copy(productList = Resource.Success(products)) }
+                setEffect { ProductEffect.ProductCreated }
             } catch (e: Exception) {
-                _productListState.value = ProductListState.Error(e.message ?: "Failed to create product")
+                setState { copy(productList = Resource.Error(e.message ?: "Failed to create product")) }
+                setEffect { ProductEffect.ShowError(e.message ?: "Failed to create product") }
             }
         }
     }
@@ -203,6 +217,26 @@ class ProductViewModel : ViewModel() {
             } else {
                 continuation.resumeWithException(e)
             }
+        }
+    }
+    
+    override fun createInitialState(): ProductState = ProductState()
+    
+    override fun handleEvent(event: ProductEvent) {
+        when (event) {
+            is ProductEvent.FetchProducts -> fetchProducts(event.limit)
+            is ProductEvent.FetchProductsBySeller -> fetchProductsBySeller(event.seller, event.limit)
+            is ProductEvent.FetchProductDetail -> fetchProductDetail(event.productId)
+            is ProductEvent.CreateProduct -> createProduct(
+                event.title,
+                event.description,
+                event.price,
+                event.isTraceable,
+                event.traceId,
+                event.imageFiles,
+                event.mimeTypes,
+                event.currentUser
+            )
         }
     }
 }
