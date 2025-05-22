@@ -1,64 +1,57 @@
 package com.example.mvp.ui.viewmodels
 
-import androidx.lifecycle.ViewModel
+import android.util.Log
 import androidx.lifecycle.viewModelScope
+import com.example.mvp.core.base.BaseViewModel
+import com.example.mvp.core.base.UiEffect
+import com.example.mvp.core.base.UiEvent
+import com.example.mvp.core.base.UiState
 import com.example.mvp.data.models.Feedback
 import com.example.mvp.data.models.Media
+import com.example.mvp.data.models.Order
 import com.example.mvp.data.models.User
 import com.parse.ParseFile
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
-sealed class ProfileState {
-    object Idle : ProfileState()
-    object Loading : ProfileState()
-    data class Error(val message: String) : ProfileState()
-    data class Success(val user: User) : ProfileState()
-}
+class ProfileViewModel : BaseViewModel<ProfileEvent, ProfileState, ProfileEffect>() {
 
-sealed class FeedbackListState {
-    object Idle : FeedbackListState()
-    object Loading : FeedbackListState()
-    data class Error(val message: String) : FeedbackListState()
-    data class Success(val feedbacks: List<Feedback>) : FeedbackListState()
-}
-
-class ProfileViewModel : ViewModel() {
-    
-    private val _profileState = MutableStateFlow<ProfileState>(ProfileState.Idle)
-    val profileState: StateFlow<ProfileState> = _profileState.asStateFlow()
-    
-    private val _feedbackState = MutableStateFlow<FeedbackListState>(FeedbackListState.Idle)
-    val feedbackState: StateFlow<FeedbackListState> = _feedbackState.asStateFlow()
+    companion object {
+        private const val TAG = "ProfileViewModel"
+    }
     
     // Get user profile
-    fun fetchUserProfile(userId: String) {
+    private fun fetchUserProfile(userId: String) {
         viewModelScope.launch {
             try {
-                _profileState.value = ProfileState.Loading
+                setState { copy(isLoading = true) }
+                Log.d(TAG, "Fetching user profile for ID: $userId")
                 
                 val user = getUserById(userId)
                 if (user != null) {
-                    _profileState.value = ProfileState.Success(user)
+                    setState { copy(user = user, isLoading = false) }
+                    Log.d(TAG, "Successfully fetched user profile: ${user.username}")
                 } else {
-                    _profileState.value = ProfileState.Error("User not found")
+                    setState { copy(isLoading = false) }
+                    setEffect { ProfileEffect.ShowError("User not found") }
+                    Log.w(TAG, "User not found for ID: $userId")
                 }
             } catch (e: Exception) {
-                _profileState.value = ProfileState.Error(e.message ?: "Failed to fetch user profile")
+                setState { copy(isLoading = false) }
+                setEffect { ProfileEffect.ShowError(e.message ?: "Failed to fetch user profile") }
+                Log.e(TAG, "Error fetching user profile", e)
             }
         }
     }
     
     // Update profile image
-    fun updateProfileImage(user: User, imageData: ByteArray) {
+    private fun updateProfileImage(user: User, imageData: ByteArray) {
         viewModelScope.launch {
             try {
-                _profileState.value = ProfileState.Loading
+                setState { copy(isLoading = true) }
+                Log.d(TAG, "Updating profile image for user: ${user.username}")
                 
                 // Create media for profile image
                 val media = Media()
@@ -74,31 +67,42 @@ class ProfileViewModel : ViewModel() {
                 user.profileImage = media
                 saveUser(user)
                 
-                _profileState.value = ProfileState.Success(user)
+                setState { copy(user = user, isLoading = false) }
+                setEffect { ProfileEffect.ProfileUpdated(user) }
+                Log.d(TAG, "Profile image updated successfully")
             } catch (e: Exception) {
-                _profileState.value = ProfileState.Error(e.message ?: "Failed to update profile image")
+                setState { copy(isLoading = false) }
+                setEffect { ProfileEffect.ShowError(e.message ?: "Failed to update profile image") }
+                Log.e(TAG, "Error updating profile image", e)
             }
         }
     }
     
     // Get user feedback
-    fun fetchUserFeedback(user: User) {
+    private fun fetchUserFeedback(user: User) {
         viewModelScope.launch {
             try {
-                _feedbackState.value = FeedbackListState.Loading
+                setState { copy(isLoadingFeedback = true) }
+                Log.d(TAG, "Fetching feedback for user: ${user.username}")
                 
                 val feedbacks = getUserFeedbacks(user)
-                _feedbackState.value = FeedbackListState.Success(feedbacks)
+                setState { copy(feedbacks = feedbacks, isLoadingFeedback = false) }
+                Log.d(TAG, "Successfully fetched ${feedbacks.size} feedbacks")
             } catch (e: Exception) {
-                _feedbackState.value = FeedbackListState.Error(e.message ?: "Failed to fetch user feedback")
+                setState { copy(isLoadingFeedback = false) }
+                setEffect { ProfileEffect.ShowError(e.message ?: "Failed to fetch user feedback") }
+                Log.e(TAG, "Error fetching user feedback", e)
             }
         }
     }
     
     // Give feedback to a user
-    fun giveFeedback(fromUser: User, toUser: User, rating: Int, comment: String?, orderId: String? = null) {
+    private fun giveFeedback(fromUser: User, toUser: User, rating: Int, comment: String?, orderId: String? = null) {
         viewModelScope.launch {
             try {
+                setState { copy(isLoadingFeedback = true) }
+                Log.d(TAG, "Giving feedback to user: ${toUser.username}")
+                
                 val feedback = Feedback()
                 feedback.fromUser = fromUser
                 feedback.toUser = toUser
@@ -112,10 +116,20 @@ class ProfileViewModel : ViewModel() {
                 
                 saveFeedback(feedback)
                 
-                // Refresh feedbacks
-                fetchUserFeedback(toUser)
+                // Get updated feedbacks
+                val updatedFeedbacks = getUserFeedbacks(toUser)
+                setState { 
+                    copy(
+                        feedbacks = updatedFeedbacks,
+                        isLoadingFeedback = false
+                    )
+                }
+                setEffect { ProfileEffect.FeedbackGiven(feedback) }
+                Log.d(TAG, "Feedback given successfully")
             } catch (e: Exception) {
-                _feedbackState.value = FeedbackListState.Error(e.message ?: "Failed to give feedback")
+                setState { copy(isLoadingFeedback = false) }
+                setEffect { ProfileEffect.ShowError(e.message ?: "Failed to give feedback") }
+                Log.e(TAG, "Error giving feedback", e)
             }
         }
     }
@@ -170,8 +184,8 @@ class ProfileViewModel : ViewModel() {
         }
     }
     
-    private suspend fun getOrderById(orderId: String): com.example.mvp.data.models.Order? = suspendCancellableCoroutine { continuation ->
-        val query = com.example.mvp.data.models.Order.getQuery()
+    private suspend fun getOrderById(orderId: String): Order? = suspendCancellableCoroutine { continuation ->
+        val query = Order.getQuery()
             .whereEqualTo("objectId", orderId)
         
         query.getFirstInBackground { order, e ->
@@ -182,4 +196,47 @@ class ProfileViewModel : ViewModel() {
             }
         }
     }
+    
+    override fun createInitialState(): ProfileState = ProfileState()
+    
+    override fun handleEvent(event: ProfileEvent) {
+        when (event) {
+            is ProfileEvent.FetchUserProfile -> fetchUserProfile(event.userId)
+            is ProfileEvent.UpdateProfileImage -> updateProfileImage(event.user, event.imageData)
+            is ProfileEvent.FetchUserFeedback -> fetchUserFeedback(event.user)
+            is ProfileEvent.GiveFeedback -> giveFeedback(
+                event.fromUser,
+                event.toUser,
+                event.rating,
+                event.comment,
+                event.orderId
+            )
+        }
+    }
+}
+
+sealed class ProfileEvent : UiEvent {
+    data class FetchUserProfile(val userId: String) : ProfileEvent()
+    data class UpdateProfileImage(val user: User, val imageData: ByteArray) : ProfileEvent()
+    data class FetchUserFeedback(val user: User) : ProfileEvent()
+    data class GiveFeedback(
+        val fromUser: User,
+        val toUser: User,
+        val rating: Int,
+        val comment: String?,
+        val orderId: String? = null
+    ) : ProfileEvent()
+}
+
+data class ProfileState(
+    val user: User? = null,
+    val feedbacks: List<Feedback> = emptyList(),
+    val isLoading: Boolean = false,
+    val isLoadingFeedback: Boolean = false
+) : UiState
+
+sealed class ProfileEffect : UiEffect {
+    data class ShowError(val message: String) : ProfileEffect()
+    data class ProfileUpdated(val user: User) : ProfileEffect()
+    data class FeedbackGiven(val feedback: Feedback) : ProfileEffect()
 }

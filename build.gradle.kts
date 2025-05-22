@@ -6,3 +6,5 @@ plugins {
     alias(libs.plugins.google.gms.google.services) apply false
     alias(libs.plugins.google.firebase.crashlytics) apply false
 }
+
+// Jacoco configuration will be applied at the app module level

@@ -21,4 +21,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "RoosterEnthusiasts"
-include(":app", ":core", ":community", ":traceability", ":marketplace", ":orders")
+include(":app", ":core", ":community", ":traceability", ":marketplace", ":orders", ":auth")

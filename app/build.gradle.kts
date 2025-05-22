@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.google.firebase.crashlytics)
     alias(libs.plugins.hilt.android)
     kotlin("kapt")
+    id("jacoco")
 }
 
 android {
@@ -45,11 +46,10 @@ android {
     }
     testOptions {
         unitTests.all {
-            // Jacoco plugin needs to be applied at root or app level for test coverage
-            // Apply 'jacoco' plugin in root build.gradle.kts or here if using a specific version
-            // jacoco {
-            //     includeNoLocationClasses = true
-            // }
+            it.extensions.configure(JacocoTaskExtension::class.java) {
+                isIncludeNoLocationClasses = true
+                excludes = listOf("jdk.internal.*")
+            }
         }
     }
     // Removed composeOptions block as the compiler is now managed by the plugin
@@ -87,6 +87,7 @@ dependencies {
     implementation(project(":traceability"))
     implementation(project(":marketplace"))
     implementation(project(":orders"))
+    implementation(project(":auth"))
     
     // Navigation
     implementation(libs.androidx.navigation.compose)
@@ -122,4 +123,46 @@ dependencies {
     androidTestImplementation(libs.mockito.android)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+}
+
+// Configure Jacoco tasks
+tasks.withType<Test>().configureEach {
+    configure<JacocoTaskExtension> {
+        isIncludeNoLocationClasses = true
+        excludes = listOf("jdk.internal.*")
+    }
+}
+
+val jacocoTestReport = tasks.create("jacocoTestReport", JacocoReport::class) {
+    group = "Reporting"
+    description = "Generate Jacoco coverage reports after running tests."
+    
+    dependsOn("testDebugUnitTest")
+    
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+    }
+    
+    val debugTree = fileTree("${project.buildDir}/tmp/kotlin-classes/debug") {
+        exclude(
+            "**/R.class",
+            "**/R$*.class",
+            "**/BuildConfig.*",
+            "**/Manifest*.*",
+            "**/*Test*.*",
+            "android/**/*.*",
+            "**/di/**",
+            "**/*_Factory.class",
+            "**/*_MembersInjector.class"
+        )
+    }
+    
+    val mainSrc = "${project.projectDir}/src/main/java"
+    
+    sourceDirectories.setFrom(files(mainSrc))
+    classDirectories.setFrom(files(debugTree))
+    executionData.setFrom(fileTree(project.buildDir) {
+        include("jacoco/testDebugUnitTest.exec")
+    })
 }

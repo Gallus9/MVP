@@ -1,101 +1,91 @@
 package com.example.mvp.ui.viewmodels
 
-import androidx.lifecycle.ViewModel
+import android.util.Log
 import androidx.lifecycle.viewModelScope
+import com.example.mvp.core.base.BaseViewModel
+import com.example.mvp.core.base.UiEffect
+import com.example.mvp.core.base.UiEvent
+import com.example.mvp.core.base.UiState
 import com.example.mvp.data.models.Order
 import com.example.mvp.data.models.ProductListing
 import com.example.mvp.data.models.User
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.resume
 
-sealed class OrderListState {
-    object Idle : OrderListState()
-    object Loading : OrderListState()
-    data class Error(val message: String) : OrderListState()
-    data class Success(val orders: List<Order>) : OrderListState()
-}
-
-sealed class OrderDetailState {
-    object Idle : OrderDetailState()
-    object Loading : OrderDetailState()
-    data class Error(val message: String) : OrderDetailState()
-    data class Success(val order: Order) : OrderDetailState()
-}
-
-sealed class OrderCreateState {
-    object Idle : OrderCreateState()
-    object Loading : OrderCreateState()
-    data class Error(val message: String) : OrderCreateState()
-    data class Success(val order: Order) : OrderCreateState()
-}
-
-class OrderViewModel : ViewModel() {
+class OrderViewModel : BaseViewModel<OrderEvent, OrderState, OrderEffect>() {
     
-    private val _orderListState = MutableStateFlow<OrderListState>(OrderListState.Idle)
-    val orderListState: StateFlow<OrderListState> = _orderListState.asStateFlow()
-    
-    private val _orderDetailState = MutableStateFlow<OrderDetailState>(OrderDetailState.Idle)
-    val orderDetailState: StateFlow<OrderDetailState> = _orderDetailState.asStateFlow()
-    
-    private val _orderCreateState = MutableStateFlow<OrderCreateState>(OrderCreateState.Idle)
-    val orderCreateState: StateFlow<OrderCreateState> = _orderCreateState.asStateFlow()
+    companion object {
+        private const val TAG = "OrderViewModel"
+    }
     
     // Fetch all orders for a user (as buyer)
-    fun fetchBuyerOrders(user: User) {
+    private fun fetchBuyerOrders(user: User) {
         viewModelScope.launch {
             try {
-                _orderListState.value = OrderListState.Loading
+                setState { copy(isLoading = true) }
+                Log.d(TAG, "Fetching buyer orders for user: ${user.username}")
                 
                 val orders = getBuyerOrders(user)
-                _orderListState.value = OrderListState.Success(orders)
+                setState { copy(orders = orders, isLoading = false) }
+                Log.d(TAG, "Successfully fetched ${orders.size} buyer orders")
             } catch (e: Exception) {
-                _orderListState.value = OrderListState.Error(e.message ?: "Failed to fetch orders")
+                setState { copy(isLoading = false) }
+                setEffect { OrderEffect.ShowError(e.message ?: "Failed to fetch orders") }
+                Log.e(TAG, "Error fetching buyer orders", e)
             }
         }
     }
     
     // Fetch all orders for a user (as seller)
-    fun fetchSellerOrders(user: User) {
+    private fun fetchSellerOrders(user: User) {
         viewModelScope.launch {
             try {
-                _orderListState.value = OrderListState.Loading
+                setState { copy(isLoading = true) }
+                Log.d(TAG, "Fetching seller orders for user: ${user.username}")
                 
                 val orders = getSellerOrders(user)
-                _orderListState.value = OrderListState.Success(orders)
+                setState { copy(orders = orders, isLoading = false) }
+                Log.d(TAG, "Successfully fetched ${orders.size} seller orders")
             } catch (e: Exception) {
-                _orderListState.value = OrderListState.Error(e.message ?: "Failed to fetch orders")
+                setState { copy(isLoading = false) }
+                setEffect { OrderEffect.ShowError(e.message ?: "Failed to fetch orders") }
+                Log.e(TAG, "Error fetching seller orders", e)
             }
         }
     }
     
     // Get a specific order by ID
-    fun fetchOrderById(orderId: String) {
+    private fun fetchOrderById(orderId: String) {
         viewModelScope.launch {
             try {
-                _orderDetailState.value = OrderDetailState.Loading
+                setState { copy(isLoading = true) }
+                Log.d(TAG, "Fetching order details for ID: $orderId")
                 
                 val order = getOrderById(orderId)
                 if (order != null) {
-                    _orderDetailState.value = OrderDetailState.Success(order)
+                    setState { copy(currentOrder = order, isLoading = false) }
+                    Log.d(TAG, "Successfully fetched order details")
                 } else {
-                    _orderDetailState.value = OrderDetailState.Error("Order not found")
+                    setState { copy(isLoading = false) }
+                    setEffect { OrderEffect.ShowError("Order not found") }
+                    Log.w(TAG, "Order not found for ID: $orderId")
                 }
             } catch (e: Exception) {
-                _orderDetailState.value = OrderDetailState.Error(e.message ?: "Failed to fetch order details")
+                setState { copy(isLoading = false) }
+                setEffect { OrderEffect.ShowError(e.message ?: "Failed to fetch order details") }
+                Log.e(TAG, "Error fetching order details", e)
             }
         }
     }
     
     // Create a new order
-    fun createOrder(product: ProductListing, buyer: User, quantity: Int) {
+    private fun createOrder(product: ProductListing, buyer: User, quantity: Int) {
         viewModelScope.launch {
             try {
-                _orderCreateState.value = OrderCreateState.Loading
+                setState { copy(isLoading = true) }
+                Log.d(TAG, "Creating new order for product: ${product.objectId}")
                 
                 val order = Order()
                 order.product = product
@@ -107,28 +97,50 @@ class OrderViewModel : ViewModel() {
                 
                 saveOrder(order)
                 
-                _orderCreateState.value = OrderCreateState.Success(order)
-                
-                // Refresh orders list
-                fetchBuyerOrders(buyer)
+                setState { 
+                    copy(
+                        isLoading = false,
+                        orders = orders + order
+                    )
+                }
+                setEffect { OrderEffect.OrderCreated(order) }
+                Log.d(TAG, "Order created successfully with ID: ${order.objectId}")
             } catch (e: Exception) {
-                _orderCreateState.value = OrderCreateState.Error(e.message ?: "Failed to create order")
+                setState { copy(isLoading = false) }
+                setEffect { OrderEffect.ShowError(e.message ?: "Failed to create order") }
+                Log.e(TAG, "Error creating order", e)
             }
         }
     }
     
     // Update order status
-    fun updateOrderStatus(order: Order, newStatus: String) {
+    private fun updateOrderStatus(order: Order, newStatus: String) {
         viewModelScope.launch {
             try {
-                _orderDetailState.value = OrderDetailState.Loading
+                setState { copy(isLoading = true) }
+                Log.d(TAG, "Updating order status to $newStatus for order: ${order.objectId}")
                 
                 order.status = newStatus
                 saveOrder(order)
                 
-                _orderDetailState.value = OrderDetailState.Success(order)
+                // Update the order in the list
+                val updatedOrders = uiState.value.orders.map {
+                    if (it.objectId == order.objectId) order else it
+                }
+                
+                setState { 
+                    copy(
+                        isLoading = false,
+                        orders = updatedOrders,
+                        currentOrder = if (uiState.value.currentOrder?.objectId == order.objectId) order else uiState.value.currentOrder
+                    )
+                }
+                setEffect { OrderEffect.OrderUpdated(order) }
+                Log.d(TAG, "Order status updated successfully")
             } catch (e: Exception) {
-                _orderDetailState.value = OrderDetailState.Error(e.message ?: "Failed to update order status")
+                setState { copy(isLoading = false) }
+                setEffect { OrderEffect.ShowError(e.message ?: "Failed to update order status") }
+                Log.e(TAG, "Error updating order status", e)
             }
         }
     }
@@ -191,4 +203,36 @@ class OrderViewModel : ViewModel() {
             }
         }
     }
+    
+    override fun createInitialState(): OrderState = OrderState()
+    
+    override fun handleEvent(event: OrderEvent) {
+        when (event) {
+            is OrderEvent.FetchBuyerOrders -> fetchBuyerOrders(event.user)
+            is OrderEvent.FetchSellerOrders -> fetchSellerOrders(event.user)
+            is OrderEvent.FetchOrderById -> fetchOrderById(event.orderId)
+            is OrderEvent.CreateOrder -> createOrder(event.product, event.buyer, event.quantity)
+            is OrderEvent.UpdateOrderStatus -> updateOrderStatus(event.order, event.newStatus)
+        }
+    }
+}
+
+sealed class OrderEvent : UiEvent {
+    data class FetchBuyerOrders(val user: User) : OrderEvent()
+    data class FetchSellerOrders(val user: User) : OrderEvent()
+    data class FetchOrderById(val orderId: String) : OrderEvent()
+    data class CreateOrder(val product: ProductListing, val buyer: User, val quantity: Int) : OrderEvent()
+    data class UpdateOrderStatus(val order: Order, val newStatus: String) : OrderEvent()
+}
+
+data class OrderState(
+    val orders: List<Order> = emptyList(),
+    val currentOrder: Order? = null,
+    val isLoading: Boolean = false
+) : UiState
+
+sealed class OrderEffect : UiEffect {
+    data class ShowError(val message: String) : OrderEffect()
+    data class OrderCreated(val order: Order) : OrderEffect()
+    data class OrderUpdated(val order: Order) : OrderEffect()
 }
