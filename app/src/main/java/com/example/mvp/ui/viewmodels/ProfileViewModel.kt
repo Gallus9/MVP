@@ -19,6 +19,11 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
+/**
+ * ViewModel for managing profile-related data and operations.
+ * Handles fetching user profiles, updating profile images and details,
+ * and managing user feedback. Extends BaseViewModel to follow the event-state-effect pattern.
+ */
 class ProfileViewModel : BaseViewModel<ProfileEvent, ProfileState, ProfileEffect>() {
 
     companion object {
@@ -141,6 +146,28 @@ class ProfileViewModel : BaseViewModel<ProfileEvent, ProfileState, ProfileEffect
         }
     }
     
+    // Update profile details
+    private fun updateProfileDetails(user: User, username: String, email: String) {
+        scope.launch {
+            try {
+                setState { copy(isLoading = true) }
+                Log.d(TAG, "Updating profile details for user: ${user.username}")
+                
+                user.username = username
+                user.email = email
+                saveUser(user)
+                
+                setState { copy(user = user, isLoading = false) }
+                setEffect { ProfileEffect.ProfileUpdated(user) }
+                Log.d(TAG, "Profile details updated successfully")
+            } catch (e: Exception) {
+                setState { copy(isLoading = false) }
+                setEffect { ProfileEffect.ShowError(e.message ?: "Failed to update profile details") }
+                Log.e(TAG, "Error updating profile details", e)
+            }
+        }
+    }
+    
     // Helper coroutine methods
     private suspend fun getUserById(userId: String): User? = suspendCancellableCoroutine { continuation ->
         val query = com.parse.ParseQuery.getQuery(User::class.java)
@@ -218,6 +245,7 @@ class ProfileViewModel : BaseViewModel<ProfileEvent, ProfileState, ProfileEffect
                 event.comment,
                 event.orderId
             )
+            is ProfileEvent.UpdateProfileDetails -> updateProfileDetails(event.user, event.username, event.email)
         }
     }
 }
@@ -233,6 +261,7 @@ sealed class ProfileEvent : UiEvent {
         val comment: String?,
         val orderId: String? = null
     ) : ProfileEvent()
+    data class UpdateProfileDetails(val user: User, val username: String, val email: String) : ProfileEvent()
 }
 
 data class ProfileState(

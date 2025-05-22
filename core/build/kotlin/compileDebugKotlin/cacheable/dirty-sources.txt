@@ -1,0 +1,2 @@
+/home/user/AndroidStudioProjects/MVP/core/src/main/kotlin/com/example/mvp/core/base/Resource.kt
+/home/user/AndroidStudioProjects/MVP/core/src/main/kotlin/com/example/mvp/core/base/BaseViewModel.kt
